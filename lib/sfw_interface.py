@@ -2,12 +2,18 @@ import amqp_types
 import amqp_spec
 
 
-def start_ok(host, mechanizm, user, passwd, locale):
+def protocol_header(version):
+    r = amqp_spec.ProtocolHeader([amqp_types.Octet(version[0]), amqp_types.Octet(version[1]),amqp_types.Octet(version[2]), amqp_types.Octet(version[3])]).encoded
+    print(r)
+    return r
+
+
+def start_ok(host, sals_mechanizm, user, passwd, locale):
     client_properties = amqp_types.FieldTable({'host': amqp_types.LongString(host)})
-    mechanizm = amqp_types.ShortString(mechanizm)
-    response = amqp_types.LongString((amqp_types.Octet(0) + user.encode('utf8') + amqp_types.Octet(0) + passwd.encode('utf8')))
+    mechanizm = amqp_types.ShortString(sals_mechanizm)
+    sals_response = amqp_types.LongString((amqp_types.Octet(0) + user.encode('utf8') + amqp_types.Octet(0) + passwd.encode('utf8')))
     locale = amqp_types.ShortString(locale)
-    r = amqp_spec.Connection.StartOk(arguments=[client_properties, mechanizm, response, locale])
+    r = amqp_spec.Connection.StartOk(arguments=[client_properties, mechanizm, sals_response, locale])
     print(r)
     return r
 
@@ -51,7 +57,6 @@ def flow(channel_number, flow_start):
 
 
 def exchange_declare(channel_number, exchange_name, exchange_type, exchange_passive, exchange_durable, exchange_auto_deleted, exchange_internal, exchange_no_wait, exchange_table, reserved_short=1):
-    # declare existing
     reserved_short = amqp_types.ShortUint(reserved_short)
     exchange_name = amqp_types.ShortString(exchange_name)
     exchange_type = amqp_types.ShortString(exchange_type)
