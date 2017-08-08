@@ -55,13 +55,15 @@ class ShortString(AmqpType):
         string_bytes = string_data.encode('utf8')
         self.encoded = struct.pack('B', len(string_bytes)) + string_bytes
 
-    @classmethod
-    def get_len(cls, binary_data):
-        return struct.unpack('B', bytes([binary_data[0]]))[0] + 1
 
     @classmethod
     def decode(cls, binary_data):
-        return cls(binary_data[1:].decode('utf8'))
+        lenght = struct.unpack('B', bytes([binary_data[0]]))[0]
+        return cls(binary_data[1:lenght + 1].decode('utf8')), binary_data[lenght + 1:]
+
+
+Path = ShortString
+
 
 class LongString(AmqpType):
     def __init__(self, string_data):
@@ -74,13 +76,11 @@ class LongString(AmqpType):
             string_bytes = string_data.encode('utf8')
         self.encoded = struct.pack('!l', len(string_bytes)) + string_bytes
 
-    @classmethod
-    def get_len(cls, binary_data):
-        return struct.unpack('!l', binary_data[0:4])[0] + 4
 
     @classmethod
     def decode(cls, binary_data):
-        return cls(binary_data[1:].decode('utf8'))
+        lenght = struct.unpack('!l', binary_data[0:4])[0]
+        return cls(binary_data[4:4+lenght].decode('utf8')), binary_data[lenght+4:]
 
 class Char(AmqpType):
     def __init__(self, symbol):
@@ -89,11 +89,8 @@ class Char(AmqpType):
 
     @classmethod
     def decode(cls, binary_data):
-        return struct.unpack('c', binary_data)[0]
+        return cls(struct.unpack('c', binary_data)[0]), binary_data[1:]
 
-    @classmethod
-    def get_len(cls, binary_data=None):
-        return 1
 
 class Octet(AmqpType):
     def __init__(self, integer_data):
@@ -103,14 +100,10 @@ class Octet(AmqpType):
 
     @classmethod
     def decode(cls, binary_data):
-        return cls(struct.unpack('B', binary_data)[0])
+        return cls(struct.unpack('B', bytes([binary_data[0]]))[0]), binary_data[1:]
 
     def decoded_value(self):
         return self.integer_data
-
-    @classmethod
-    def get_len(cls, binary_data=None):
-        return 1
 
 
 Bool = Octet
@@ -119,15 +112,18 @@ Bool = Octet
 class ShortUint(AmqpType):
     def __init__(self, integer_data):
         super().__init__()
+        self.integer_data = integer_data
         self.encoded = struct.pack('!H', integer_data)
 
     @classmethod
     def decode(cls, binary_data):
-        return struct.unpack('!H', binary_data)[0]
+        return cls(struct.unpack('!H', binary_data[:2])[0]), binary_data[2:]
 
-    @classmethod
-    def get_len(cls, binary_data=None):
-        return 2
+    def decoded_value(self):
+        return self.integer_data
+
+# TODO do new class for getting true on type(self) for such objects  see (type(ExchangeName()) will be shortstr but I want exchange name)
+ExchangeName = ShortString
 
 
 class LongUint(AmqpType):
@@ -137,11 +133,7 @@ class LongUint(AmqpType):
 
     @classmethod
     def decode(cls, binary_data):
-        return struct.unpack('!l', binary_data)[0]
-
-    @classmethod
-    def get_len(cls, binary_data=None):
-        return 4
+        return cls(struct.unpack('!l', binary_data[:4])[0]), binary_data[4:]
 
 
 class LongLongUint(AmqpType):
@@ -149,10 +141,9 @@ class LongLongUint(AmqpType):
         super().__init__()
         self.encoded = struct.pack('!Q', integer_data)
 
-    @classmethod
-    def get_len(cls, binary_data=None):
-        return 8
-
+        @classmethod
+        def decode(cls, binary_data):
+            return cls(struct.unpack('!Q', binary_data)[0]), binary_data[8:]
 
 class FieldTable(AmqpType):
     amqp_types = {
@@ -174,17 +165,14 @@ class FieldTable(AmqpType):
         self.encoded = (LongUint(len(result)) + result).encoded
 
     @classmethod
-    def get_len(cls, binary_data):
-
-        return struct.unpack('!l', binary_data[0:4])[0] + 4
-
-    @classmethod
     def decode(cls, binary_data):
-        table_size, binary_data = struct.unpack('!l', binary_data[0:4]), binary_data[4:]
+        #import pdb;pdb.set_trace()
+        length = struct.unpack('!l', binary_data[0:4])[0]
         #while len(binary_data):
         # k_len = ShortString.get_len(binary_data)
         # k_size, k_data, v_type, binary_data = binary_data[0], binary_data[0: k_len], binary_data[k_len + 1], binary_data[k_len+1:]
         # v_len = cls.amqp_types_[v_type].get_len(binary_data)
         # v_size, v_data = binary_data[0], binary_data[0: k_len]
         # # table_size, binary_data = struct.unpack('B', binary_data[0:s_len]), binary_data[s_len:]
-        return FieldTable({'host': LongString('localhost')})
+
+        return FieldTable({'host': LongString('localhost')}), binary_data[length + 4:]

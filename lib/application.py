@@ -34,12 +34,10 @@ class Application:
         self.socket = socket.socket(af, socktype, proto)
         self.socket.connect(sa)
 
-        self.socket.send(sfw_interface.protocol_header([0, 0, 9, 1]))
+        self.socket.send(sfw_interface.protocol_header([0, 0, 9, 1]).encoded)
         data = self.socket.recv(4096)
-        #print(frame.decode_frame(data))
-        print('=================')
-        amqp_spec.Frame.decode_frame(data)
-        print('=================')
+        #print(amqp_spec.ProtocolHeader.decode_frame(sfw_interface.protocol_header([0, 0, 9, 1])))
+        print(amqp_spec.Frame.decode_frame(data))
         return self.socket
 
     def processor_new(self):
@@ -50,60 +48,70 @@ class Application:
         # #TODO remove 12414
         yield self.write(start_ok.encoded)
         data2 = self.socket.recv(4096)
-        print(frame.decode_frame(data2))
+        #print(frame.decode_frame(data2))
+        print(amqp_spec.Frame.decode_frame(data2))
 
 
         tune_ok = sfw_interface.tune_ok(0, 131072, 5)
         yield self.write(tune_ok.encoded)
-        #data3 = self.socket.recv(4096)
+        data3 = self.socket.recv(4096)
         #print(frame.decode_frame(data3))
+        print(amqp_spec.Frame.decode_frame(data3))
 
 
         open = sfw_interface.conection_open('/')
         yield self.write(open.encoded)
         data4 = self.socket.recv(4096)
-        print(frame.decode_frame(data4))
+        #print(frame.decode_frame(data4))
+        print(amqp_spec.Frame.decode_frame(data4))
 
         hearbeat_frame = sfw_interface.hearbeat()
         yield self.write(hearbeat_frame.encoded)
         data5 = self.socket.recv(4096)
-        print(frame.decode_frame(data5))
+        #print(frame.decode_frame(data5))
+        print(amqp_spec.Frame.decode_frame(data5))
 
 
         open = sfw_interface.channel_open(channel_number)
         yield self.write(open.encoded)
         data5 = self.socket.recv(4096)
-        print(frame.decode_frame(data5))
+        #print(frame.decode_frame(data5))
+        print(amqp_spec.Frame.decode_frame(data5))
 
 
         flow = sfw_interface.flow(channel_number, 1)
         yield self.write(flow.encoded)
         data6 = self.socket.recv(4096)
-        print(frame.decode_frame(data6))
+        #print(frame.decode_frame(data6))
+        print(amqp_spec.Frame.decode_frame(data6))
 
 
         declare = sfw_interface.exchange_declare(channel_number, 'message', 'topic', 1, 1, 0, 0, 0, {})
         yield self.write(declare.encoded)
         data7 = self.socket.recv(4096)
-        print(frame.decode_frame(data7))
+        #print(frame.decode_frame(data7))
+        print(amqp_spec.Frame.decode_frame(data7))
 
 
         declare_q = sfw_interface.queue_declare(channel_number, 'text', 0, 1, 0, 0, 0, {})
         yield self.write(declare_q.encoded)
         data8 = self.socket.recv(4096)
-        print(frame.decode_frame(data8))
+        #print(frame.decode_frame(data8))
+        print(amqp_spec.Frame.decode_frame(data8))
 
 
         declare_q = sfw_interface.queue_bind(channel_number, 'text', 'message', 'text.#', 1, {})
         yield self.write(declare_q.encoded)
         data8 = self.socket.recv(4096)
-        print(frame.decode_frame(data8))
+        #print(frame.decode_frame(data8))
+        print(amqp_spec.Frame.decode_frame(data8))
 
 
         for i in sfw_interface.publish(channel_number, 'message', 'text.tratata', 0, 0, 'qrqwrq', {'content-type': 'application/json'}):
             yield self.write(i.encoded)
             data8 = self.socket.recv(4096)
-            print(frame.decode_frame(data8))
+            #print(frame.decode_frame(data8))
+            print(amqp_spec.Frame.decode_frame(data8))
 
     # def processor_old(self):
     #     channel_number = amqp_types.ShortUint(1)

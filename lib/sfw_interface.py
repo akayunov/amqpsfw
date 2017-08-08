@@ -3,7 +3,7 @@ import amqp_spec
 
 
 def protocol_header(version):
-    r = amqp_spec.ProtocolHeader([amqp_types.Octet(version[0]), amqp_types.Octet(version[1]),amqp_types.Octet(version[2]), amqp_types.Octet(version[3])]).encoded
+    r = amqp_spec.ProtocolHeader([amqp_types.Octet(version[0]), amqp_types.Octet(version[1]),amqp_types.Octet(version[2]), amqp_types.Octet(version[3])])
     print(r)
     return r
 
@@ -131,5 +131,5 @@ def publish(channel_number,exchange_name, routing_key, mandatory, immediate, con
         amqp_spec.Content(channel_number, [amqp_types.AmqpType(content_string)])
     ]
 
-    print(r)
+    [print(i) for i in r]
     return r
