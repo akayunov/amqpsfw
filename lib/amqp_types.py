@@ -33,6 +33,7 @@ class AmqpType:
     def __len__(self):
         return len(self.encoded)
 
+# TODO do we really need this arter new argument parser???
     @staticmethod
     def join(array):
         result = AmqpType()
@@ -160,10 +161,10 @@ class LongLongUint(AmqpType):
 class FieldTable(AmqpType):
     def __init__(self, dict_data):
         super().__init__(dict_data)
-        # for example dict_data = {'field_name1': LongString, 'field_name2': Octet, 'filed_name3': ShortString}
+        # for example dict_data = {'field_name1': ['S' : 'value1'], 'field_name2': ['t': value2]...}
         result = AmqpType()
         for field_name in dict_data:
-            result += ShortString(field_name) + amqp_types_code[type(dict_data[field_name])] + dict_data[field_name]
+            result += ShortString(field_name) + Char(dict_data[field_name][0]) + amqp_types_code_to_type[dict_data[field_name][0]](dict_data[field_name][1])
         self.encoded = (LongUint(len(result)) + result).encoded
 
     @classmethod
@@ -175,7 +176,7 @@ class FieldTable(AmqpType):
             key, table = ShortString.decode(table)
             v_type, table = Char.decode(table)
             v_value, table = amqp_types_code_to_type[v_type.decoded_value].decode(table)
-            result[key.decoded_value] = v_value
+            result[key.decoded_value] = [v_type.decoded_value, v_value.decoded_value]
         return cls(result), binary_data[length + 4:]
 
 amqp_types_code = {
@@ -187,6 +188,7 @@ amqp_types_code = {
 }
 
 amqp_types_code_to_type = {
+    # short sting does not parsed - strage!!
     'S': LongString,
     'F': FieldTable,
     't': Octet

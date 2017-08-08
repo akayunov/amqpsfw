@@ -37,8 +37,11 @@ class Frame:
         self.set_payload(arguments)
         self.encoded = (self.frame_type + self.channel_number + LongUint(len(self.payload)) + self.payload).encoded
 
+    # def set_payload(self, arguments):
+    #     self.payload = AmqpType.join(arguments)
     def set_payload(self, arguments):
-        self.payload = AmqpType.join(arguments)
+        for arg, arg_type in zip(arguments, self.type_structure):
+            self.payload += arg_type(arg)
 
     @property
     def encoded(self):
@@ -56,13 +59,17 @@ class Method(Frame):
     frame_type = Octet(1)
 
     def set_payload(self, arguments):
-        self.payload = ShortUint(self.class_id) + ShortUint(self.method_id) + AmqpType.join(arguments)
+        self.payload = ShortUint(self.class_id) + ShortUint(self.method_id)
+        for arg, arg_type in zip(arguments, self.type_structure):
+            self.payload += arg_type(arg)
 
 
 class Header(Frame):
     frame_type = Octet(2)
     type_structure = [ShortUint, ShortUint, LongLongUint, ShortUint, ShortString]  # ShortString - really many bit for header
-
+    # TODO do the same as for Frame
+    def set_payload(self, arguments):
+        self.payload = AmqpType.join(arguments)
 
 class Content(Frame):
     frame_type = Octet(3)
@@ -219,7 +226,7 @@ def decode_frame(frame_bytes):
         result = []
         for i in FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value].type_structure:
             payload_part, payload_bytes = i.decode(payload_bytes)
-            result.append(payload_part)
+            result.append(payload_part.decoded_value)
         return [
             FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value](channel_number=frame_channel, arguments=result),
             frame_bytes[frame_size.decoded_value+7+1:]
