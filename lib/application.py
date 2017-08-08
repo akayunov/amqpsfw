@@ -25,8 +25,21 @@ class Application:
 
     def write(self, value):
         self.output_buffer = value.encoded
-        ioloop = IOLoop.current()
-        ioloop.modify_to_write()
+        IOLoop.current().modify_to_write()
+
+    # TODO we need to devide diferent channales for diferent coroutines
+    def handle_read(self):
+        self.buffer_in += self.socket.recv(4096)
+        frame = self.parse_buffer()
+        if frame:
+            self.processor_new.send(frame)
+
+    def handle_write(self):
+        # TODO use more optimize structure for slice to avoid copping
+        writed_bytes = self.socket.send(self.output_buffer)
+        self.output_buffer = self.output_buffer[writed_bytes:]
+        if not self.output_buffer:
+            IOLoop.current().modify_to_read()
 
     def start(self):
         HOST = 'localhost'
@@ -36,13 +49,13 @@ class Application:
         self.socket = socket.socket(af, socktype, proto)
         self.socket.connect(sa)
 
-        self.socket.send(sfw_interface.protocol_header([0, 0, 9, 1]).encoded)
-        data = self.socket.recv(4096)
-        #print(amqp_spec.ProtocolHeader.decode_frame(sfw_interface.protocol_header([0, 0, 9, 1])))
-        print(amqp_spec.decode_frame(data))
         return self.socket
 
     def processor_new(self):
+
+        protocol_header = sfw_interface.protocol_header([0, 0, 9, 1])
+        data = yield self.write(protocol_header)
+        print(data)
 
         channel_number = amqp_types.ShortUint(1)
         start_ok = sfw_interface.start_ok('localhost', 'PLAIN', 'root', 'privetserver', 'en_US')
