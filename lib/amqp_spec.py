@@ -4,6 +4,7 @@ from amqp_types import (AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortS
 from exceptions import SfwException
 
 # TODO do all classes byte like object to remove encode from socket.send
+# TODO use memoryview, avoid too much copping
 
 
 class ProtocolHeader:
@@ -200,26 +201,26 @@ FRAME_TYPES = {
 
 
 def decode_frame(frame_bytes):
-    # TODO use memoryview, avoid too much copping
-    # import pdb;
-    # pdb.set_trace()
     (frame_type, _), (frame_channel, _), (frame_size, _) = Octet.decode(bytes([frame_bytes[0]])), ShortUint.decode(frame_bytes[1:3]), LongUint.decode(frame_bytes[3:7])
-    frame_payload, frame_end = frame_bytes[7:frame_size.decoded_value()+7], frame_bytes[frame_size.decoded_value()+7]
+    if frame_size.decoded_value > len(frame_bytes[7:]) - 1:
+        # data is non efficient
+        return None
+    frame_payload, frame_end = frame_bytes[7:frame_size.decoded_value+7], frame_bytes[frame_size.decoded_value+7]
     if frame_end != frame_end:
         raise SfwException('Internal', 'Wrong frame end')
-    if frame_size.decoded_value() != len(frame_payload):
+    if frame_size.decoded_value != len(frame_payload):
         raise SfwException('Internal', 'Wrong frame size')
     if frame_type != Octet(1):
-        return FRAME_TYPES[frame_type.decoded_value()](), frame_bytes[frame_size.decoded_value()+7+1:]
+        return FRAME_TYPES[frame_type.decoded_value](), frame_bytes[frame_size.decoded_value+7+1:]
     else:
         method_bytes = frame_payload
         (class_id, _), (method_id, _), method_payload = ShortUint.decode(method_bytes[0:2]), ShortUint.decode(method_bytes[2:4]), method_bytes[4: len(method_bytes)]
         payload_bytes = method_payload
         result = []
-        for i in FRAME_TYPES[frame_type.decoded_value()][class_id.decoded_value()][method_id.decoded_value()].type_structure:
+        for i in FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value].type_structure:
             payload_part, payload_bytes = i.decode(payload_bytes)
             result.append(payload_part)
         return [
-            FRAME_TYPES[frame_type.decoded_value()][class_id.decoded_value()][method_id.decoded_value()](channel_number=frame_channel, arguments=result),
-            frame_bytes[frame_size.decoded_value()+7+1:]
+            FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value](channel_number=frame_channel, arguments=result),
+            frame_bytes[frame_size.decoded_value+7+1:]
         ]

@@ -1,9 +1,13 @@
 import struct
 
 
+# TODO use memory view on slicing
+
 class AmqpType:
-    def __init__(self, data=b''):
-        self.encoded = data
+
+    def __init__(self, data=''):
+        self.encoded = b''
+        self.decoded_value = data
         self.parts = [type(self)]  # TODO do we really need this?
 
     def __add__(self, other):
@@ -52,7 +56,7 @@ class AmqpType:
 
 class ShortString(AmqpType):
     def __init__(self, string_data):
-        super().__init__()
+        super().__init__(string_data)
         string_bytes = string_data.encode('utf8')
         self.encoded = struct.pack('B', len(string_bytes)) + string_bytes
 
@@ -72,7 +76,7 @@ class QueueName(ShortString):
 
 class LongString(AmqpType):
     def __init__(self, string_data):
-        super().__init__()
+        super().__init__(string_data)
         if type(string_data) in [bytes, bytearray]:
             string_bytes = string_data
         elif type(string_data) is AmqpType:
@@ -89,27 +93,22 @@ class LongString(AmqpType):
 
 class Char(AmqpType):
     def __init__(self, symbol):
-        super().__init__()
-        self.encoded = struct.pack('c', symbol)
+        super().__init__(symbol)
+        self.encoded = struct.pack('c', symbol.encode('utf8'))
 
     @classmethod
     def decode(cls, binary_data):
-        return cls(struct.unpack('c', binary_data)[0]), binary_data[1:]
+        return cls(struct.unpack('c', bytes([binary_data[0]]))[0].decode('utf8')), binary_data[1:]
 
 
 class Octet(AmqpType):
     def __init__(self, integer_data):
-        super().__init__()
-        self.integer_data = integer_data
+        super().__init__(integer_data)
         self.encoded = struct.pack('B', integer_data)
 
     @classmethod
     def decode(cls, binary_data):
         return cls(struct.unpack('B', bytes([binary_data[0]]))[0]), binary_data[1:]
-
-    def decoded_value(self):
-        # TODO do it on parent class for all types
-        return self.integer_data
 
 
 class Bool(Octet):
@@ -122,17 +121,12 @@ class Bit(Octet):
 
 class ShortUint(AmqpType):
     def __init__(self, integer_data):
-        super().__init__()
-        self.integer_data = integer_data
+        super().__init__(integer_data)
         self.encoded = struct.pack('!H', integer_data)
 
     @classmethod
     def decode(cls, binary_data):
         return cls(struct.unpack('!H', binary_data[:2])[0]), binary_data[2:]
-
-    def decoded_value(self):
-        # TODO do it on parent class for all types
-        return self.integer_data
 
 
 class ExchangeName(ShortString):
@@ -141,17 +135,12 @@ class ExchangeName(ShortString):
 
 class LongUint(AmqpType):
     def __init__(self, integer_data):
-        super().__init__()
-        self.integer_data = integer_data
+        super().__init__(integer_data)
         self.encoded = struct.pack('!l', integer_data)
 
     @classmethod
     def decode(cls, binary_data):
         return cls(struct.unpack('!l', binary_data[:4])[0]), binary_data[4:]
-
-    def decoded_value(self):
-        # TODO do it on parent class for all types
-        return self.integer_data
 
 
 class MessageCount(LongUint):
@@ -160,7 +149,7 @@ class MessageCount(LongUint):
 
 class LongLongUint(AmqpType):
     def __init__(self, integer_data):
-        super().__init__()
+        super().__init__(integer_data)
         self.encoded = struct.pack('!Q', integer_data)
 
     @classmethod
@@ -169,34 +158,36 @@ class LongLongUint(AmqpType):
 
 
 class FieldTable(AmqpType):
-    amqp_types = {
-        Bool: Octet(ord('t')),
-        # short sting does not parsed - strage!!
-        LongString: Octet(ord('S'))
-    }
-
-    amqp_types_ = {
-        'S': LongString
-    }
-
     def __init__(self, dict_data):
-        super().__init__()
+        super().__init__(dict_data)
         # for example dict_data = {'field_name1': LongString, 'field_name2': Octet, 'filed_name3': ShortString}
         result = AmqpType()
         for field_name in dict_data:
-            result += ShortString(field_name) + FieldTable.amqp_types[type(dict_data[field_name])] + dict_data[field_name]
+            result += ShortString(field_name) + amqp_types_code[type(dict_data[field_name])] + dict_data[field_name]
         self.encoded = (LongUint(len(result)) + result).encoded
 
     @classmethod
     def decode(cls, binary_data):
-        # TODO realize it
-        # import pdb;pdb.set_trace()
         length = struct.unpack('!l', binary_data[0:4])[0]
-        # while len(binary_data):
-        #  k_len = ShortString.get_len(binary_data)
-        #  k_size, k_data, v_type, binary_data = binary_data[0], binary_data[0: k_len], binary_data[k_len + 1], binary_data[k_len+1:]
-        #  v_len = cls.amqp_types_[v_type].get_len(binary_data)
-        #  v_size, v_data = binary_data[0], binary_data[0: k_len]
-        #  # table_size, binary_data = struct.unpack('B', binary_data[0:s_len]), binary_data[s_len:]
+        table = binary_data[4:length + 4]
+        result = {}
+        while len(table):
+            key, table = ShortString.decode(table)
+            v_type, table = Char.decode(table)
+            v_value, table = amqp_types_code_to_type[v_type.decoded_value].decode(table)
+            result[key.decoded_value] = v_value
+        return cls(result), binary_data[length + 4:]
 
-        return FieldTable({'host': LongString('localhost')}), binary_data[length + 4:]
+amqp_types_code = {
+    Bool: Char('t'),
+    # short sting does not parsed - strage!!
+    LongString: Char('S'),
+    Octet: Char('B'),
+    FieldTable: Char('F'),
+}
+
+amqp_types_code_to_type = {
+    'S': LongString,
+    'F': FieldTable,
+    't': Octet
+}
