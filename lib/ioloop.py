@@ -41,15 +41,18 @@ class IOLoop:
         while 1:
             events = EPOOL.poll()
             for fd, event in events:
+                # TODO we need to devide diferent channales for diferent coroutines
                 if event & select.EPOLLIN:
                     self.app.buffer_in += self.app.socket.recv(4096)
-                    self.app.parse_buffer()
+                    frame = self.app.parse_buffer()
+                    if frame:
+                        self.app_processor.send(frame)
                 elif event & select.EPOLLOUT:
                     # TODO use more optimize structure for slice
                     writed_bytes = self.app.socket.send(self.app.output_buffer)
                     self.app.output_buffer = self.app.output_buffer[writed_bytes:]
                     if not self.app.output_buffer:
-                        self.app_processor.send(None)
+                        self.modify_to_read()
                 elif event & select.EPOLLHUP:
                     pass
                 else:

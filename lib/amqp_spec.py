@@ -1,5 +1,6 @@
 import struct
-from amqp_types import AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, LongLongUint, ExchangeName
+from amqp_types import (AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path,
+                        LongLongUint, ExchangeName, Bit, QueueName, MessageCount)
 from exceptions import SfwException
 
 # TODO do all classes byte like object to remove encode from socket.send
@@ -9,21 +10,10 @@ class ProtocolHeader:
     type_structure = [Char] * 4 + [Octet] * 4
 
     def __init__(self, version):
-        self.encoded = (AmqpType() + struct.pack('cccc', b'A', b'M', b'Q', b'P') + AmqpType().join(version)).encoded
-
-    # @classmethod
-    # def decode_frame(cls, frame_bytes):
-    #     result = []
-    #     for i in cls.type_structure:
-    #         # TODO use memoryview
-    #         frame_part, frame_bytes = frame_bytes[: i.get_len()], frame_bytes[i.get_len():]
-    #         frame_part, frame_bytes = i.decode(frame_bytes)
-    #         result.append(frame_part)
-    #     return ProtocolHeader(result[4:])
+        self.encoded = (AmqpType() + struct.pack('cccc', b'A', b'M', b'Q', b'P') + AmqpType.join(version)).encoded
 
     @classmethod
     def decode_frame(cls, payload_bytes):
-        # TODO fix it
         result = []
         for i in cls.type_structure:
             # TODO use memoryview
@@ -37,8 +27,6 @@ class ProtocolHeader:
 
 class Frame:
     frame_end = Octet(206)
-
-
     type_structure = [Octet, ShortUint, LongUint]
 
     def __init__(self, channel_number=ShortUint(0), arguments=b''):
@@ -49,20 +37,7 @@ class Frame:
         self.encoded = (self.frame_type + self.channel_number + LongUint(len(self.payload)) + self.payload).encoded
 
     def set_payload(self, arguments):
-        self.payload = AmqpType().join(arguments)
-
-    @classmethod
-    def decode_frame(cls, frame_bytes):
-        # TODO use memoryview
-        #import pdb;pdb.set_trace()
-        (frame_type, _), (frame_channel, _), (frame_size, _),  frame_payload, frame_end = Octet.decode(bytes([frame_bytes[0]])), ShortUint.decode(frame_bytes[1:3]), LongUint.decode(frame_bytes[3:7]), frame_bytes[7: len(frame_bytes)-1], frame_bytes[-1]
-        if frame_end != frame_end:
-            raise SfwException('Internal', 'Wrong frame end')
-        #if frame_size != len(frame_payload):
-        #    raise SfwException('Internal', 'Wrong frame size')
-        # TODO parent should not known about child do it on module level with function
-        r = cls.frame_type_map[frame_type.decoded_value()].decode_method(frame_channel, frame_size, frame_payload)
-        return r
+        self.payload = AmqpType.join(arguments)
 
     @property
     def encoded(self):
@@ -80,29 +55,12 @@ class Method(Frame):
     frame_type = Octet(1)
 
     def set_payload(self, arguments):
-        self.payload = ShortUint(self.class_id) + ShortUint(self.method_id) + AmqpType().join(arguments)
-
-    @classmethod
-    def decode_method(cls, frame_channel, frame_size, method_bytes):
-        (class_id, _), (method_id, _), method_payload = ShortUint.decode(method_bytes[0:2]), ShortUint.decode(method_bytes[2:4]),method_bytes[4: len(method_bytes)]
-        # TODO parent should not known about child do it on module level with function
-        return cls.method_class_id_map[class_id.decoded_value()][method_id.decoded_value()].decode_payload(method_payload)
-
-    @classmethod
-    def decode_payload(cls, payload_bytes):
-        result = []
-        for i in cls.type_structure:
-            # TODO use memoryview
-            payload_part, payload_bytes = i.decode(payload_bytes)
-            result.append(payload_part)
-        return cls(arguments=result)
+        self.payload = ShortUint(self.class_id) + ShortUint(self.method_id) + AmqpType.join(arguments)
 
 
 class Header(Frame):
     frame_type = Octet(2)
-    type_structure = [ShortUint, ShortUint, LongLongUint, ShortUint, ShortString] # ShortString any times
-
-
+    type_structure = [ShortUint, ShortUint, LongLongUint, ShortUint, ShortString]  # ShortString - really many bit for header
 
 
 class Content(Frame):
@@ -113,22 +71,18 @@ class Content(Frame):
 class Heartbeat(Frame):
     frame_type = Octet(8)
 
-    @classmethod
-    def decode_method(cls, *args):
-        return cls()
-
 
 class Connection:
+    class Start(Method):
+        type_structure = [Octet, Octet, FieldTable, LongString, LongString]
+        class_id = 10
+        method_id = 10
+
     class StartOk(Method):
         # TODO as we place it here remove sfw_interface file
         type_structure = [FieldTable, ShortString, LongString, ShortString]
         class_id = 10
         method_id = 11
-
-    class Start(Method):
-        type_structure = [Octet, Octet, FieldTable, LongString, LongString]
-        class_id = 10
-        method_id = 10
 
     class Tune(Method):
         type_structure = [ShortUint, LongUint, ShortUint]
@@ -141,7 +95,7 @@ class Connection:
         method_id = 31
 
     class Open(Method):
-        type_structure = [Path, ShortString, Octet]
+        type_structure = [Path, ShortString, Bit]
         class_id = 10
         method_id = 40
 
@@ -158,24 +112,24 @@ class Channel:
         method_id = 10
 
     class OpenOk(Method):
-        type_structure = [ShortString]
+        type_structure = [LongString]
         class_id = 20
         method_id = 11
 
     class Flow(Method):
-        type_structure = [Octet]
+        type_structure = [Bit]
         class_id = 20
         method_id = 20
 
     class FlowOk(Method):
-        type_structure = [Octet]
+        type_structure = [Bit]
         class_id = 20
         method_id = 20
 
 
 class Exchange:
     class Declare(Method):
-        type_structure = [ShortUint, ShortString, ShortString, Octet, FieldTable]
+        type_structure = [ShortUint, ExchangeName, ShortString, Octet, FieldTable]  # TODO Octet indeed is 5 bit
         class_id = 40
         method_id = 10
 
@@ -184,42 +138,34 @@ class Exchange:
         class_id = 40
         method_id = 11
 
+
 class Queue:
     class Declare(Method):
-        type_structure = [ShortUint, ShortString, Octet, FieldTable]
+        type_structure = [ShortUint, QueueName, Octet, FieldTable]  # TODO Octet indeed is 5 bit
         class_id = 50
         method_id = 10
 
     class DeclareOk(Method):
-        type_structure = [ShortString, LongUint, LongUint]
+        type_structure = [QueueName, MessageCount, LongUint]
         class_id = 50
         method_id = 11
 
-
     class Bind(Method):
-        type_structure = [ShortUint, ShortString, ShortString, ShortString, Octet, FieldTable]
+        type_structure = [ShortUint, QueueName, ExchangeName, ShortString, Bit, FieldTable]
         class_id = 50
         method_id = 20
 
 
 class Basic:
     class Publish(Method):
-        type_structure = [ShortUint, ShortString, ShortString, Octet]
+        type_structure = [ShortUint, ExchangeName, ShortString, Octet]  # TODO Octet indeed is 2 bit
         class_id = 60
         method_id = 40
 
 
-Frame.frame_type_map = {
-    # TODO construct it dynamic in runtime
-        1: Method,
-        2: Header,
-        3: Content,
-        8: Heartbeat,
-    }
-
-
-Method.method_class_id_map = {
-        # TODO construct it dynamic in runtime
+# TODO construct it dynamic in runtime
+FRAME_TYPES = {
+    1:     {
         10: {
             10: Connection.Start,
             11: Connection.StartOk,
@@ -246,6 +192,34 @@ Method.method_class_id_map = {
         60: {
             40: Basic.Publish
         },
-    }
+    },
+    2: Header,
+    3: Content,
+    8: Heartbeat
+}
 
 
+def decode_frame(frame_bytes):
+    # TODO use memoryview, avoid too much copping
+    # import pdb;
+    # pdb.set_trace()
+    (frame_type, _), (frame_channel, _), (frame_size, _) = Octet.decode(bytes([frame_bytes[0]])), ShortUint.decode(frame_bytes[1:3]), LongUint.decode(frame_bytes[3:7])
+    frame_payload, frame_end = frame_bytes[7:frame_size.decoded_value()+7], frame_bytes[frame_size.decoded_value()+7]
+    if frame_end != frame_end:
+        raise SfwException('Internal', 'Wrong frame end')
+    if frame_size.decoded_value() != len(frame_payload):
+        raise SfwException('Internal', 'Wrong frame size')
+    if frame_type != Octet(1):
+        return FRAME_TYPES[frame_type.decoded_value()](), frame_bytes[frame_size.decoded_value()+7+1:]
+    else:
+        method_bytes = frame_payload
+        (class_id, _), (method_id, _), method_payload = ShortUint.decode(method_bytes[0:2]), ShortUint.decode(method_bytes[2:4]), method_bytes[4: len(method_bytes)]
+        payload_bytes = method_payload
+        result = []
+        for i in FRAME_TYPES[frame_type.decoded_value()][class_id.decoded_value()][method_id.decoded_value()].type_structure:
+            payload_part, payload_bytes = i.decode(payload_bytes)
+            result.append(payload_part)
+        return [
+            FRAME_TYPES[frame_type.decoded_value()][class_id.decoded_value()][method_id.decoded_value()](channel_number=frame_channel, arguments=result),
+            frame_bytes[frame_size.decoded_value()+7+1:]
+        ]
