@@ -1,6 +1,7 @@
 import struct
 from amqp_types import (AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path,
-                        LongLongUint, ExchangeName, Bit, QueueName, MessageCount)
+                        LongLongUint, ExchangeName, Bit, QueueName, MessageCount, HeaderPropertyFlag, HeaderPropertyValue)
+import sasl_spec
 from exceptions import SfwException
 
 # TODO do all classes byte like object to remove encode from socket.send
@@ -8,10 +9,13 @@ from exceptions import SfwException
 
 
 class ProtocolHeader:
-    type_structure = [Char] * 4 + [Octet] * 4
+    type_structure = [Char, Char, Char,Char, Octet, Octet, Octet, Octet]
 
-    def __init__(self, version):
-        self.encoded = (AmqpType() + struct.pack('cccc', b'A', b'M', b'Q', b'P') + AmqpType.join(version)).encoded
+    def __init__(self, *args):
+        self.payload = AmqpType()
+        args = ['A', 'M', 'Q', 'P'] + list(args)
+        self.set_payload(args)
+        self.encoded = self.payload.encoded
 
     @classmethod
     def decode_frame(cls, payload_bytes):
@@ -22,6 +26,10 @@ class ProtocolHeader:
             result.append(payload_part)
         return cls(arguments=result)
 
+    def set_payload(self, arguments):
+        for arg, arg_type in zip(arguments, self.type_structure):
+            self.payload += arg_type(arg)
+
     def __str__(self):
         return str(type(self)) + ' ' + str(self.encoded)
 
@@ -30,11 +38,11 @@ class Frame:
     frame_end = Octet(206)
     type_structure = [Octet, ShortUint, LongUint]
 
-    def __init__(self, channel_number=ShortUint(0), arguments=b''):
+    def __init__(self, *args, channel_number=ShortUint(0)):
         self._encoded = b''
         self.payload = AmqpType()
         self.channel_number = channel_number
-        self.set_payload(arguments)
+        self.set_payload(args)
         self.encoded = (self.frame_type + self.channel_number + LongUint(len(self.payload)) + self.payload).encoded
 
     # def set_payload(self, arguments):
@@ -66,10 +74,12 @@ class Method(Frame):
 
 class Header(Frame):
     frame_type = Octet(2)
-    type_structure = [ShortUint, ShortUint, LongLongUint, ShortUint, ShortString]  # ShortString - really many bit for header
+    type_structure = [ShortUint, ShortUint, LongLongUint, HeaderPropertyFlag, HeaderPropertyValue]  # ShortString - really many bit for header
     # TODO do the same as for Frame
     def set_payload(self, arguments):
-        self.payload = AmqpType.join(arguments)
+
+        for arg, arg_type in zip(arguments, self.type_structure):
+            self.payload += arg_type(arg)
 
 class Content(Frame):
     frame_type = Octet(3)
@@ -88,7 +98,7 @@ class Connection:
 
     class StartOk(Method):
         # TODO as we place it here remove sfw_interface file
-        type_structure = [FieldTable, ShortString, LongString, ShortString]
+        type_structure = [FieldTable, ShortString, sasl_spec.Plain, ShortString]
         class_id = 10
         method_id = 11
 
@@ -228,6 +238,6 @@ def decode_frame(frame_bytes):
             payload_part, payload_bytes = i.decode(payload_bytes)
             result.append(payload_part.decoded_value)
         return [
-            FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value](channel_number=frame_channel, arguments=result),
+            FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value](*result, channel_number=frame_channel),
             frame_bytes[frame_size.decoded_value+7+1:]
         ]

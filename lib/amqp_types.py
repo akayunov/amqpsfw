@@ -1,8 +1,9 @@
 import struct
-
+from exceptions import SfwException
 
 # TODO use memory view on slicing
 
+# TODO it is just sfwtypes not AMQP because it used in sasl module
 class AmqpType:
 
     def __init__(self, data=''):
@@ -53,6 +54,16 @@ class AmqpType:
 
     def __eq__(self, other):
         return self.encoded == other.encoded
+
+
+class String(AmqpType):
+    def __init__(self, string_data):
+        super().__init__(string_data)
+        self.encoded = string_data.encode('utf8')
+
+    @classmethod
+    def decode(cls, binary_data):
+        return cls(binary_data.decode('utf8')), binary_data[len(binary_data) + 1:]
 
 
 class ShortString(AmqpType):
@@ -132,6 +143,26 @@ class ShortUint(AmqpType):
 
 class ExchangeName(ShortString):
     pass
+
+
+class HeaderPropertyFlag(ShortUint):
+    # TODO may be longer see basic publish header property
+    pass
+
+
+class HeaderPropertyValue(AmqpType):
+    # TODO may be different types see basic publish header property
+    def __init__(self, string_array):
+        super().__init__(string_array)
+        self.encoded = b''.join([ShortString(i).encoded for i in string_array])
+
+    @classmethod
+    def decode(cls, binary_data):
+        string_array = []
+        while binary_data:
+            string_element, binary_data = ShortString.decode(binary_data)
+            string_array.append(string_element)
+        return cls(string_array), binary_data
 
 
 class LongUint(AmqpType):
