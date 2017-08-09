@@ -1,9 +1,9 @@
 import struct
-from exceptions import SfwException
 
 # TODO use memory view on slicing
-
 # TODO it is just sfwtypes not AMQP because it used in sasl module
+
+
 class AmqpType:
 
     def __init__(self, data=''):
@@ -34,17 +34,17 @@ class AmqpType:
     def __len__(self):
         return len(self.encoded)
 
-# TODO do we really need this arter new argument parser???
-    @staticmethod
-    def join(array):
-        result = AmqpType()
-        for i in array:
-            result = result + i
-            if hasattr(i, 'parts'):
-                result.parts += i.parts
-            else:
-                result.parts += type(i)
-        return result
+# # TODO do we really need this arter new argument parser???
+#     @staticmethod
+#     def join(array):
+#         result = AmqpType()
+#         for i in array:
+#             result = result + i
+#             if hasattr(i, 'parts'):
+#                 result.parts += i.parts
+#             else:
+#                 result.parts += type(i)
+#         return result
 
     def __str__(self):
         return str(type(self)) + ' ' + str(self.encoded)
@@ -147,11 +147,13 @@ class ExchangeName(ShortString):
 
 class HeaderPropertyFlag(ShortUint):
     # TODO may be longer see basic publish header property
+    # TODO realize it
     pass
 
 
 class HeaderPropertyValue(AmqpType):
     # TODO may be different types see basic publish header property
+    # TODO realize it
     def __init__(self, string_array):
         super().__init__(string_array)
         self.encoded = b''.join([ShortString(i).encoded for i in string_array])
