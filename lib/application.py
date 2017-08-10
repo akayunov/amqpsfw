@@ -2,26 +2,22 @@ import socket
 import amqp_spec
 from ioloop import IOLoop
 
-WRITE = 'write'
-READ = 'read'
-
 
 class Application:
 
     def __init__(self):
-        self.socket_state = WRITE
         self.output_buffer = b''
         self.buffer_in = b''
 
     def parse_buffer(self):
         frame, buffer_in = amqp_spec.decode_frame(self.buffer_in)
-        print(frame)
+        print('IN: ' + str(frame))
         self.buffer_in = buffer_in
         return frame
 
     def write(self, value):
-        print(value)
-        self.output_buffer = value.encoded
+        print('OUT:' + str(value))
+        self.output_buffer += value.encoded
         IOLoop.current().modify_to_write()
 
     # TODO we need to devide diferent channales for diferent coroutines
@@ -54,36 +50,34 @@ class Application:
 
         channel_number = 1
         start_ok = amqp_spec.Connection.StartOk({'host': ['S', 'localhost']}, 'PLAIN', credential=['root', 'privetserver'])
-        # we don't need to do yield self.write because it non block operation
-        data2 = yield self.write(start_ok)
+        self.write(start_ok)
+        tune = yield
 
-        # TODO if I tunf of HEARTBEAT(last 1 ) all will be hung because there no response from server
-        tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=1)
-        data3 = yield self.write(tune_ok)
-
-        # TODO invent way to do default values for reversed values but only for construct values not for decode frame from server
+        tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=4)
+        self.write(tune_ok)
         open = amqp_spec.Connection.Open(virtual_host='/')
-        data4 = yield self.write(open)
-
-        hearbeat_frame = amqp_spec.Heartbeat()
-        data5 = yield self.write(hearbeat_frame)
+        self.write(open)
+        openok = yield
 
         open = amqp_spec.Channel.Open(channel_number=channel_number)
-        data5 = yield self.write(open)
+        self.write(open)
+        openok = yield
 
         flow = amqp_spec.Channel.Flow(channel_number=channel_number)
-        data6 = yield self.write(flow)
+        self.write(flow)
+        flowok = yield
 
         declare = amqp_spec.Exchange.Declare('message', channel_number=channel_number)
-        data7 = yield self.write(declare)
+        self.write(declare)
+        declareok = yield
 
-        # TODO allow use queue from channel object to avoid pass chanel number to queue __init__ method
-        # TODO remove channen_number from here do it from getting from response server
         declare_q = amqp_spec.Queue.Declare(queue_name='text', channel_number=channel_number)
-        data8 = yield self.write(declare_q)
+        self.write(declare_q)
+        declareok = yield
 
         declare_q = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=channel_number)
-        data8 = yield self.write(declare_q)
+        self.write(declare_q)
+        bindok = yield
         content = 'qrqwrq'
         r = [
             amqp_spec.Basic.Publish(exchange_name='message', routing_key='text.tratata', channel_number=channel_number),
@@ -92,8 +86,8 @@ class Application:
         ]
         publish_methods = r
         for i in publish_methods:
-            data8 = yield self.write(i)
+            self.write(i)
         while 1:
             data9 = yield
             if type(data9) == amqp_spec.Heartbeat:
-                data9 = yield self.write(amqp_spec.Heartbeat())
+                self.write(amqp_spec.Heartbeat())
