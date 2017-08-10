@@ -53,60 +53,42 @@ class Application:
         data = yield self.write(protocol_header)
 
         channel_number = 1
-        start_ok = amqp_spec.Connection.StartOk({'host': ['S', 'localhost']}, 'PLAIN', ['root', 'privetserver'], 'en_US')
+        start_ok = amqp_spec.Connection.StartOk({'host': ['S', 'localhost']}, 'PLAIN', credential=['root', 'privetserver'])
         # we don't need to do yield self.write because it non block operation
         data2 = yield self.write(start_ok)
 
-        tune_ok = amqp_spec.Connection.TuneOk(0, 131072, 1)
+        # TODO if I tunf of HEARTBEAT(last 1 ) all will be hung because there no response from server
+        tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=1)
         data3 = yield self.write(tune_ok)
 
         # TODO invent way to do default values for reversed values but only for construct values not for decode frame from server
-        open = amqp_spec.Connection.Open('/', '', 0)
+        open = amqp_spec.Connection.Open(virtual_host='/')
         data4 = yield self.write(open)
 
         hearbeat_frame = amqp_spec.Heartbeat()
         data5 = yield self.write(hearbeat_frame)
 
-        open = amqp_spec.Channel.Open('', channel_number=channel_number)
+        open = amqp_spec.Channel.Open(channel_number=channel_number)
         data5 = yield self.write(open)
 
-        flow = amqp_spec.Channel.Flow(1, channel_number=channel_number)
+        flow = amqp_spec.Channel.Flow(channel_number=channel_number)
         data6 = yield self.write(flow)
 
-        bits = 1 * 2 ** 0 + 1 * 2 ** 1 + 0 * 2 ** 2 + 0 * 2 ** 3 + 0 * 2 ** 4
-        # <<< if bit go together when pack it in one octet
-        declare = amqp_spec.Exchange.Declare(1, 'message', 'topic', bits, {}, channel_number=channel_number)
+        declare = amqp_spec.Exchange.Declare('message', channel_number=channel_number)
         data7 = yield self.write(declare)
 
-        bits = 0 * 2 ** 0 + 1 * 2 ** 1 + 0 * 2 ** 2 + 0 * 2 ** 3 + 0 * 2 ** 4
-        # <<< if bit go together when pack it in one octet
-        declare_q = amqp_spec.Queue.Declare(1, 'text', bits, {}, channel_number=channel_number)
+        # TODO allow use queue from channel object to avoid pass chanel number to queue __init__ method
+        # TODO remove channen_number from here do it from getting from response server
+        declare_q = amqp_spec.Queue.Declare(queue_name='text', channel_number=channel_number)
         data8 = yield self.write(declare_q)
 
-        bits = 1
-        # <<< if bit go together when pack it in one octet
-        declare_q = amqp_spec.Queue.Bind(1, 'text', 'message', 'text.#', bits, {}, channel_number=channel_number)
+        declare_q = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=channel_number)
         data8 = yield self.write(declare_q)
-
-#======================== publish
-        bits = 0 * 2 ** 0 + 0 * 2 ** 1
-        # <<< if bit go together when pack it in one octet
-        # content header
-        content_string = 'qrqwrq'.encode('utf8')
-
-        class_id = amqp_spec.Basic.Publish.class_id
-        # property by order first property - highest bit 1000000000000000 - only first property
-        properties_table = ['content-type']
-        property_flag = 0
-        property_values = []
-        property = {'content-type': 'application/json'}
-        for k in property:
-            property_flag += 2 ** (15 - properties_table.index(k))
-            property_values.append(property[k])
+        content = 'qrqwrq'
         r = [
-            amqp_spec.Basic.Publish(1, 'message', 'text.tratata', bits, channel_number=channel_number),
-            amqp_spec.Header(class_id, 0, len(content_string), property_flag, property_values, channel_number=channel_number),
-            amqp_spec.Content(content_string, channel_number=channel_number)
+            amqp_spec.Basic.Publish(exchange_name='message', routing_key='text.tratata', channel_number=channel_number),
+            amqp_spec.Header(class_id=amqp_spec.Basic.Publish.class_id, body_size=len(content), properties={'content-type': 'application/json'}, channel_number=channel_number),
+            amqp_spec.Content(content=content.encode('utf8'), channel_number=channel_number)
         ]
         publish_methods = r
         for i in publish_methods:

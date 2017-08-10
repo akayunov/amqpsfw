@@ -1,3 +1,5 @@
+import functools
+import sys
 from amqp_types import (AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path,
                         LongLongUint, ExchangeName, Bit, QueueName, MessageCount, HeaderPropertyFlag, HeaderPropertyValue)
 import sasl_spec
@@ -5,6 +7,21 @@ from exceptions import SfwException
 
 # TODO do all classes byte like object to remove encode from socket.send
 # TODO use memoryview, avoid too much copping
+
+THIS_MODULE = sys.modules[__name__]
+
+
+def multimethod(init):
+    @functools.wraps(init)
+    def wrapper(*args, **kwargs):
+        if len(init.__code__.co_varnames) >= len(args) + len(kwargs):
+            # if argument count equal to __init__ of class, call this __init__
+            init(*args, **kwargs)
+        else:
+            # if argument count don't equal to __init__ of class, call super __init__
+            fqdn = init.__qualname__
+            super(getattr(getattr(THIS_MODULE, fqdn.split('.')[0]), fqdn.split('.')[1]), args[0]).__init__(*args[1:], **kwargs)
+    return wrapper
 
 
 class Frame:
@@ -19,8 +36,8 @@ class Frame:
         self.set_payload(args)
         self.encoded = (Octet(self.frame_type) + ShortUint(self.channel_number) + LongUint(len(self.payload)) + self.payload).encoded
 
-    def set_payload(self, arguments):
-        for arg, arg_type in zip(arguments, self.type_structure):
+    def set_payload(self, args):
+        for arg, arg_type in zip(args, self.type_structure):
             self.payload += arg_type(arg)
 
     @property
@@ -61,10 +78,25 @@ class Header(Frame):
     frame_type = 2
     type_structure = [ShortUint, ShortUint, LongLongUint, HeaderPropertyFlag, HeaderPropertyValue]  # ShortString - really many bit for header
 
+    @multimethod
+    def __init__(self, class_id, weight=0, body_size=0, properties=None, channel_number=0):
+        # property by order first property - highest bit 1000000000000000 - only first property
+        properties_table = ['content-type']
+        property_flag = 0
+        property_values = []
+        for k in properties:
+            property_flag += 2 ** (15 - properties_table.index(k))
+            property_values.append(properties[k])
+        super().__init__(class_id, weight, body_size, channel_number=channel_number)
+
 
 class Content(Frame):
     frame_type = 3
     type_structure = [AmqpType]
+
+    @multimethod
+    def __init__(self, content='', channel_number=0):
+        super().__init__(content, channel_number=channel_number)
 
 
 class Heartbeat(Frame):
@@ -83,6 +115,10 @@ class Connection:
         class_id = 10
         method_id = 11
 
+        @multimethod
+        def __init__(self, peer_properties, mechanism, credential, locale='en_US', channel_number=0):
+            super().__init__(peer_properties, mechanism, credential, locale, channel_number=channel_number)
+
     class Tune(Method):
         type_structure = [ShortUint, LongUint, ShortUint]
         class_id = 10
@@ -93,10 +129,20 @@ class Connection:
         class_id = 10
         method_id = 31
 
+        @multimethod
+        def __init__(self, channel_max=0, frame_max=131072, heartbeat_interval=60, channel_number=0):
+            super().__init__(channel_max, frame_max, heartbeat_interval, channel_number=channel_number)
+
     class Open(Method):
         type_structure = [Path, ShortString, Bit]
         class_id = 10
         method_id = 40
+
+        @multimethod
+        def __init__(self, virtual_host='/', channel_number=0):
+            reserved1 = ''
+            reserved2 = 0
+            super().__init__(virtual_host, reserved1, reserved2, channel_number=channel_number)
 
     class OpenOk(Method):
         type_structure = [ShortString]
@@ -110,6 +156,11 @@ class Channel:
         class_id = 20
         method_id = 10
 
+        @multimethod
+        def __init__(self, channel_number=0):
+            reserved1 = ''
+            super().__init__(reserved1, channel_number=channel_number)
+
     class OpenOk(Method):
         type_structure = [LongString]
         class_id = 20
@@ -120,6 +171,10 @@ class Channel:
         class_id = 20
         method_id = 20
 
+        @multimethod
+        def __init__(self, active=1, channel_number=0):
+            super().__init__(active, channel_number=channel_number)
+
     class FlowOk(Method):
         type_structure = [Bit]
         class_id = 20
@@ -128,9 +183,17 @@ class Channel:
 
 class Exchange:
     class Declare(Method):
-        type_structure = [ShortUint, ExchangeName, ShortString, Octet, FieldTable]  # TODO Octet indeed is 5 bit
+        type_structure = [ShortUint, ExchangeName, ShortString, Octet, FieldTable]
         class_id = 40
         method_id = 10
+
+        @multimethod
+        def __init__(self, exchange_name, exchange_type='topic', do_not_create=0, durable=1, auto_deleted=0, internal=0, no_wait=0, properties=None, channel_number=0):
+            reserved1 = 0
+            properties = {} if not properties else properties
+            bits = do_not_create * 2 ** 0 + durable * 2 ** 1 + auto_deleted * 2 ** 2 + internal * 2 ** 3 + no_wait * 2 ** 4
+            # <<< if bit go together when pack it in one octet
+            super().__init__(reserved1, exchange_name, exchange_type, bits, properties, channel_number=channel_number)
 
     class DeclareOk(Method):
         type_structure = []
@@ -140,9 +203,18 @@ class Exchange:
 
 class Queue:
     class Declare(Method):
-        type_structure = [ShortUint, QueueName, Octet, FieldTable]  # TODO Octet indeed is 5 bit
+        type_structure = [ShortUint, QueueName, Octet, FieldTable]
         class_id = 50
         method_id = 10
+
+        @multimethod
+        def __init__(self, queue_name, passive=0, durable=1, exclusive=0, auto_deleted=0, no_wait=0, properties=None, channel_number=0):
+            reserved1 = 0
+            properties = {} if not properties else properties
+            # TODO use <<
+            bits = passive * 2 ** 0 + durable * 2 ** 1 + exclusive * 2 ** 2 + auto_deleted * 2 ** 3 + no_wait * 2 ** 4
+            # <<< if bit go together when pack it in one octet
+            super().__init__(reserved1, queue_name, bits, properties, channel_number=channel_number)
 
     class DeclareOk(Method):
         type_structure = [QueueName, MessageCount, LongUint]
@@ -154,12 +226,30 @@ class Queue:
         class_id = 50
         method_id = 20
 
+        @multimethod
+        def __init__(self, queue_name, exchange_name, routing_key, no_wait=0, properties=None, channel_number=0):
+            reserved1 = 0
+            properties = {} if not properties else properties
+            super().__init__(reserved1, queue_name, exchange_name, routing_key, no_wait, properties, channel_number=channel_number)
+
+    class BindOk(Method):
+        type_structure = []
+        class_id = 50
+        method_id = 21
+
 
 class Basic:
     class Publish(Method):
-        type_structure = [ShortUint, ExchangeName, ShortString, Octet]  # TODO Octet indeed is 2 bit
+        type_structure = [ShortUint, ExchangeName, ShortString, Octet]
         class_id = 60
         method_id = 40
+
+        @multimethod
+        def __init__(self, exchange_name, routing_key, mandatory=0, immediate=0, channel_number=0):
+            reserved1 = 0
+            bits = mandatory * 2 ** 0 + immediate * 2 ** 1
+            # <<< if bit go together when pack it in one octet
+            super().__init__(reserved1, exchange_name, routing_key, bits, channel_number=channel_number)
 
 
 # TODO construct it dynamic in runtime
@@ -186,7 +276,8 @@ FRAME_TYPES = {
         50: {
             10: Queue.Declare,
             11: Queue.DeclareOk,
-            20: Queue.Bind
+            20: Queue.Bind,
+            21: Queue.BindOk
         },
         60: {
             40: Basic.Publish
@@ -227,5 +318,5 @@ def decode_frame(frame_bytes):
         for i in FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value].type_structure:
             payload_part, payload_bytes = i.decode(payload_bytes)
             result.append(payload_part.decoded_value)
-        return  FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value](*result, channel_number=frame_channel.decoded_value),\
-                frame_bytes[frame_size.decoded_value+7+1:]
+        return FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value](*result, channel_number=frame_channel.decoded_value),\
+               frame_bytes[frame_size.decoded_value+7+1:]
