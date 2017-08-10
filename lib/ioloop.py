@@ -38,15 +38,15 @@ class IOLoop:
         self.app = app
 
         # TODO remove it
-        self.app_processor = app.processor_new()
-        app.processor_new = self.app_processor
+        self.app_processor = app.processor()
+        app.processor = self.app_processor
         self.app_processor.send(None)
 
     def modify_to_read(self):
-        EPOOL.modify(self.fileno, select.EPOLLERR | select.EPOLLIN)
+        EPOOL.modify(self.fileno, select.EPOLLIN | select.EPOLLERR | select.EPOLLPRI | select.EPOLLRDBAND | select.EPOLLHUP | select.EPOLLRDHUP)
 
     def modify_to_write(self):
-        EPOOL.modify(self.fileno, select.EPOLLERR | select.EPOLLOUT)
+        EPOOL.modify(self.fileno, select.EPOLLOUT | select.EPOLLERR | select.EPOLLHUP | select.EPOLLRDHUP)
 
     def unregistered(self):
         EPOOL.unregister(self.fileno)
@@ -62,11 +62,15 @@ class IOLoop:
             events = EPOOL.poll()
             for fd, event in events:
                 # TODO add more event type checking
-                if event & select.EPOLLIN:
+                if event & (select.EPOLLIN | select.EPOLLPRI | select.EPOLLRDBAND):
                     self.handle_read()
                 elif event & select.EPOLLOUT:
                     self.handle_write()
                 elif event & select.EPOLLHUP:
+                    pass
+                elif event & select.EPOLLERR:
+                    pass
+                elif event & select.EPOLLRDHUP:
                     pass
                 else:
                     raise IOLoopException('IOLOOP', 'Unknown error socket state')

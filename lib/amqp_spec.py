@@ -149,6 +149,16 @@ class Connection:
         class_id = 10
         method_id = 41
 
+    class Close(Method):
+        type_structure = [ShortUint, ShortString, ShortUint, ShortUint]
+        class_id = 10
+        method_id = 50
+
+    class CloseOk(Method):
+        type_structure = []
+        class_id = 10
+        method_id = 51
+
 
 class Channel:
     class Open(Method):
@@ -179,6 +189,16 @@ class Channel:
         type_structure = [Bit]
         class_id = 20
         method_id = 20
+
+    class Close(Method):
+        type_structure = [ShortUint, ShortString, ShortUint, ShortUint]
+        class_id = 20
+        method_id = 40
+
+    class CloseOk(Method):
+        type_structure = []
+        class_id = 20
+        method_id = 41
 
 
 class Exchange:
@@ -262,12 +282,16 @@ FRAME_TYPES = {
             31: Connection.TuneOk,
             40: Connection.Open,
             41: Connection.OpenOk,
+            50: Connection.Close,
+            51: Connection.CloseOk
         },
         20: {
             10: Channel.Open,
             11: Channel.OpenOk,
             20: Channel.Flow,
-            21: Channel.FlowOk
+            21: Channel.FlowOk,
+            40: Channel.Close,
+            41: Channel.CloseOk
         },
         40: {
             10: Exchange.Declare,

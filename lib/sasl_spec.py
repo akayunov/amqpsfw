@@ -17,7 +17,7 @@ class Plain(AmqpType):
         for arg, arg_type in zip(arguments, self.type_structure):
             self.payload += Octet(0)
             self.payload += arg_type(arg)
-        self.payload = LongString(self.payload)
+        self.payload = LongString(AmqpType('PLAIN') + self.payload)
 
     @property
     def encoded(self):

@@ -25,7 +25,7 @@ class Application:
         self.buffer_in += self.socket.recv(4096)
         frame = self.parse_buffer()
         if frame:
-            self.processor_new.send(frame)
+            self.processor.send(frame)
 
     def handle_write(self):
         # TODO use more optimize structure for slice to avoid copping
@@ -44,7 +44,7 @@ class Application:
 
         return self.socket
 
-    def processor_new(self):
+    def processor(self):
         protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', 0, 0, 9, 1)
         data = yield self.write(protocol_header)
 
