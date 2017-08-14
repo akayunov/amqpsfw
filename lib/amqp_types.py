@@ -78,6 +78,10 @@ class ShortString(AmqpType):
         return cls(binary_data[1:lenght + 1].decode('utf8')), binary_data[lenght + 1:]
 
 
+class ConsumerTag(ShortString):
+    pass
+
+
 class Path(ShortString):
     pass
 
@@ -146,8 +150,6 @@ class ExchangeName(ShortString):
 
 
 class HeaderPropertyFlag(ShortUint):
-    # TODO may be longer see basic publish header property
-    # TODO realize it
     pass
 
 
@@ -163,7 +165,7 @@ class HeaderPropertyValue(AmqpType):
         string_array = []
         while binary_data:
             string_element, binary_data = ShortString.decode(binary_data)
-            string_array.append(string_element)
+            string_array.append(string_element.decoded_value)
         return cls(string_array), binary_data
 
 
@@ -188,7 +190,11 @@ class LongLongUint(AmqpType):
 
     @classmethod
     def decode(cls, binary_data):
-        return cls(struct.unpack('!Q', binary_data)[0]), binary_data[8:]
+        return cls(struct.unpack('!Q', binary_data[:8])[0]), binary_data[8:]
+
+
+class DeliveryTag(LongLongUint):
+    pass
 
 
 class FieldTable(AmqpType):

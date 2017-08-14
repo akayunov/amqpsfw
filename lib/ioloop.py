@@ -52,8 +52,10 @@ class IOLoop:
         if timeout_in_seconds:
             self.timeout_time_expired = time.time() + timeout_in_seconds
 
-    def modify_to_write(self):
+    def modify_to_write(self, timeout_in_seconds=None):
         EPOOL.modify(self.fileno, select.EPOLLOUT | select.EPOLLERR | select.EPOLLHUP | select.EPOLLRDHUP)
+        if timeout_in_seconds:
+            self.timeout_time_expired = time.time() + timeout_in_seconds
 
     def unregistered(self):
         EPOOL.unregister(self.fileno)

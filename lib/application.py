@@ -13,6 +13,8 @@ class Application:
         self.output_buffer_frames = deque()
         self.output_buffer = None
         self.buffer_in = b''
+        self.host = 'localhost'
+        self.port = '5672'
 
     def parse_buffer(self):
         frame, buffer_in = amqp_spec.decode_frame(self.buffer_in)
@@ -20,16 +22,15 @@ class Application:
         self.buffer_in = buffer_in
         return frame
 
-    def write(self, value):
+    def write(self, value, timeout_in_seconds=None):
         print('OUT:' + str(int(time.time())) + ' ' + str(value))
         self.output_buffer_frames.append(value)
-        IOLoop.current().modify_to_write()
+        IOLoop.current().modify_to_write(timeout_in_seconds=timeout_in_seconds)
 
     # TODO we need to devide diferent channales for diferent coroutines
     def handle_read(self, by_timeout=False):
         if by_timeout:
             self.processor.send(None)
-            return
         else:
             self.buffer_in += self.socket.recv(4096)
             frame = self.parse_buffer()
@@ -46,7 +47,12 @@ class Application:
         # TODO use more optimize structure for slice to avoid copping
         if not self.output_buffer:
             frame = self.output_buffer_frames.popleft()
+            # if type(frame) == amqp_spec.Header:
+            #     import pdb;pdb.set_trace()
             self.output_buffer = [type(frame), frame.encoded]
+            if type(frame) is amqp_spec.EmptyFrame:
+                for i in list(self.output_buffer_frames):
+                    self.output_buffer[1] += i.encoded
         writed_bytes = self.socket.send(self.output_buffer[1])
         self.output_buffer[1] = self.output_buffer[1][writed_bytes:]
         if not self.output_buffer[1]:
@@ -64,15 +70,11 @@ class Application:
                 self.output_buffer = None
 
     def sleep(self, n):
-        # TODO sleep it handle_write with timeout in deed!!
-        writed_bytes = self.socket.send(self.output_buffer[1])
-        self.output_buffer[1] = self.output_buffer[1][writed_bytes:]
-        IOLoop.current().modify_to_read(timeout_in_seconds=n)
+        # flush all buffers while sleep
+        self.write(amqp_spec.EmptyFrame(), timeout_in_seconds=n)
 
     def start(self):
-        HOST = 'localhost'
-        PORT = '5672'
-        res = socket.getaddrinfo(HOST, PORT, socket.AF_INET, socket.SOCK_STREAM)
+        res = socket.getaddrinfo(self.host, self.port, socket.AF_INET, socket.SOCK_STREAM)
         af, socktype, proto, canonname, sa = res[0]
         self.socket = socket.socket(af, socktype, proto)
         self.socket.connect(sa)
@@ -81,38 +83,33 @@ class Application:
 
     def processor(self):
         protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', 0, 0, 9, 1)
-        data = yield self.write(protocol_header)
-
+        start = yield self.write(protocol_header)
 
         channel_number = 1
         start_ok = amqp_spec.Connection.StartOk({'host': ['S', 'localhost']}, 'PLAIN', credential=['root', 'privetserver'])
         tune = yield self.write(start_ok)
 
-
         tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=100)
-        # yield self.write(tune_ok)  # it works too!!!!
-        self.write(tune_ok)  # it works too!!!!
+        # yield self.write(tune_ok)  # it works too!!!! and frame must be send to server
+        self.write(tune_ok)  # it works too!!!! and frame will be send to server on next yield
 
-        open = amqp_spec.Connection.Open(virtual_host='/')
-        openok = yield self.write(open)
+        c_open = amqp_spec.Connection.Open(virtual_host='/')
+        openok = yield self.write(c_open)
 
-
-        open = amqp_spec.Channel.Open(channel_number=channel_number)
-        openok = yield self.write(open)
-
+        ch_open = amqp_spec.Channel.Open(channel_number=channel_number)
+        ch_open_ok = yield self.write(ch_open)
 
         flow = amqp_spec.Channel.Flow(channel_number=channel_number)
-        flowok = yield self.write(flow)
+        flow_ok = yield self.write(flow)
 
-
-        declare = amqp_spec.Exchange.Declare('message', channel_number=channel_number)
-        declareok = yield self.write(declare)
+        ex_declare = amqp_spec.Exchange.Declare('message', channel_number=channel_number)
+        declare_ok = yield self.write(ex_declare)
 
         declare_q = amqp_spec.Queue.Declare(queue_name='text', channel_number=channel_number)
-        declareok = yield self.write(declare_q)
+        declare_q_ok = yield self.write(declare_q)
 
-        declare_q = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=channel_number)
-        bindok = yield self.write(declare_q)
+        bind = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=channel_number)
+        bind_ok = yield self.write(bind)
 
         content = 'qrqwrq'
         r = [
@@ -122,10 +119,5 @@ class Application:
         ]
         publish_methods = r
         for i in publish_methods:
-            yield self.write(i)
-            print(1111111)
+            self.write(i)
             yield self.sleep(3)
-        # while 1:
-        #     data9 = yield
-        #     if type(data9) == amqp_spec.Heartbeat:
-        #         yield self.write(amqp_spec.Heartbeat())

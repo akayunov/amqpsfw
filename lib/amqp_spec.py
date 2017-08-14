@@ -1,7 +1,7 @@
 import functools
 import sys
-from amqp_types import (AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path,
-                        LongLongUint, ExchangeName, Bit, QueueName, MessageCount, HeaderPropertyFlag, HeaderPropertyValue)
+from amqp_types import (AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, String,
+                        LongLongUint, ExchangeName, Bit, QueueName, MessageCount, HeaderPropertyFlag, HeaderPropertyValue, ConsumerTag, DeliveryTag)
 import sasl_spec
 from exceptions import SfwException
 
@@ -14,7 +14,7 @@ THIS_MODULE = sys.modules[__name__]
 def multimethod(init):
     @functools.wraps(init)
     def wrapper(*args, **kwargs):
-        if len(init.__code__.co_varnames) >= len(args) + len(kwargs):
+        if init.__code__.co_argcount >= len(args) + len(kwargs):
             # if argument count equal to __init__ of class, call this __init__
             init(*args, **kwargs)
         else:
@@ -22,6 +22,14 @@ def multimethod(init):
             fqdn = init.__qualname__
             super(getattr(getattr(THIS_MODULE, fqdn.split('.')[0]), fqdn.split('.')[1]), args[0]).__init__(*args[1:], **kwargs)
     return wrapper
+
+
+class EmptyFrame:
+    dont_wait_response = 0
+    encoded = b''
+
+    def __str__(self):
+        return str(type(self)) + ' ' + str(self.encoded)
 
 
 class Frame:
@@ -75,32 +83,37 @@ class Method(Frame):
         super().__init__(*args, ** kwargs)
 
 
-class Header(Frame):
-    frame_type = 2
-    type_structure = [ShortUint, ShortUint, LongLongUint, HeaderPropertyFlag, HeaderPropertyValue]  # ShortString - really many bit for header
-    dont_wait_response = 1
-
-    @multimethod
-    def __init__(self, class_id, weight=0, body_size=0, properties=None, channel_number=0):
-        # property by order first property - highest bit 1000000000000000 - only first property
-        properties_table = ['content-type']
-        property_flag = 0
-        property_values = []
-        for k in properties:
-            property_flag += 2 ** (15 - properties_table.index(k))
-            property_values.append(properties[k])
-        super().__init__(class_id, weight, body_size, channel_number=channel_number)
+class TTT:
+    class Header(Frame):
+        frame_type = 2
+        type_structure = [ShortUint, ShortUint, LongLongUint, HeaderPropertyFlag, HeaderPropertyValue]  # ShortString - really many bit for header
+        dont_wait_response = 1
 
 
-class Content(Frame):
-    frame_type = 3
-    type_structure = [AmqpType]
-    dont_wait_response = 1
+        @multimethod
+        def __init__(self, class_id, weight=0, body_size=0, properties=None, channel_number=0):
+            # property by order first property - highest bit 1000000000000000 - only first property
+            properties_table = ['content-type', 'content­encoding', 'headers', 'delivery­mode', 'priority', 'correlation­id', 'reply­to', 'expiration',
+                                'message­id', 'timestamp', 'timestamp', 'user­id', 'app­id', 'reserved']
+            property_flag = 0
+            property_values = []
+            for k in properties:
+                property_flag += 2 ** (15 - properties_table.index(k))
+                property_values.append(properties[k])
+            super().__init__(class_id, weight, body_size, property_flag, property_values, channel_number=channel_number)
 
-    @multimethod
-    def __init__(self, content='', channel_number=0):
-        super().__init__(content, channel_number=channel_number)
+    class Content(Frame):
+        frame_type = 3
+        type_structure = [String]
+        dont_wait_response = 1
 
+        @multimethod
+        def __init__(self, content='', channel_number=0):
+            super().__init__(content, channel_number=channel_number)
+
+
+Header = TTT.Header
+Content = TTT.Content
 
 class Heartbeat(Frame):
     frame_type = 8
@@ -121,6 +134,16 @@ class Connection:
         @multimethod
         def __init__(self, peer_properties, mechanism, credential, locale='en_US', channel_number=0):
             super().__init__(peer_properties, mechanism, credential, locale, channel_number=channel_number)
+
+    class Secure(Method):
+        type_structure = [LongString]
+        class_id = 10
+        method_id = 20
+
+    class SecureOk(Method):
+        type_structure = [LongString]
+        class_id = 10
+        method_id = 21
 
     class Tune(Method):
         type_structure = [ShortUint, LongUint, ShortUint]
@@ -224,6 +247,23 @@ class Exchange:
         class_id = 40
         method_id = 11
 
+    class Delete(Method):
+        type_structure = [ShortUint, ExchangeName, Octet]
+        class_id = 40
+        method_id = 20
+
+        @multimethod
+        def __init__(self, exchange_name, delete_if_unused=0, no_wait=0, channel_number=0):
+            reserved1 = 0
+            bits = delete_if_unused * 2 ** 0 + no_wait * 2 ** 1
+            # <<< if bit go together when pack it in one octet
+            super().__init__(reserved1, exchange_name, bits, channel_number=channel_number)
+
+    class DeleteOk(Method):
+        type_structure = []
+        class_id = 40
+        method_id = 21
+
 
 class Queue:
     class Declare(Method):
@@ -272,10 +312,50 @@ class Basic:
         @multimethod
         def __init__(self, exchange_name, routing_key, mandatory=0, immediate=0, channel_number=0):
             reserved1 = 0
+            # TODO co_varname count local variable too
             bits = mandatory * 2 ** 0 + immediate * 2 ** 1
             # <<< if bit go together when pack it in one octet
             super().__init__(reserved1, exchange_name, routing_key, bits, channel_number=channel_number)
 
+    class Consume(Method):
+        type_structure = [ShortUint, QueueName, ConsumerTag, Bit, FieldTable]
+        class_id = 60
+        method_id = 20
+
+        @multimethod
+        def __init__(self, queue_name, consumer_tag='', non_local=1, no_ack=0, exclusize=0, no_wait=0, properties=None, channel_number=0):
+            reserved1 = 0
+            properties = {} if not properties else properties
+            bits = non_local * 2 ** 0 + no_ack * 2 ** 1 + exclusize * 2 ** 2 + no_wait * 2 ** 3
+            # <<< if bit go together when pack it in one octet
+            super().__init__(reserved1, queue_name, consumer_tag, bits, properties, channel_number=channel_number)
+
+    class ConsumeOk(Method):
+        type_structure = [ConsumerTag]
+        class_id = 60
+        method_id = 21
+
+    class Deliver(Method):
+        type_structure = [ConsumerTag, DeliveryTag, Bit, ExchangeName, ShortString]
+        class_id = 60
+        method_id = 60
+
+        @multimethod
+        def __init__(self, consumer_tag, delivery_tag, redelivered, exchange_name, routing_key, channel_number=0):
+            bits = redelivered * 2 ** 0
+            # <<< if bit go together when pack it in one octet
+            super().__init__(consumer_tag, delivery_tag, bits, exchange_name, routing_key, channel_number=channel_number)
+
+    class Ack(Method):
+        type_structure = [DeliveryTag, Bit]
+        class_id = 60
+        method_id = 80
+
+        @multimethod
+        def __init__(self, delivery_tag, multiple, channel_number=0):
+            bits = multiple * 2 ** 0
+            # <<< if bit go together when pack it in one octet
+            super().__init__(delivery_tag, bits, channel_number=channel_number)
 
 # TODO construct it dynamic in runtime
 FRAME_TYPES = {
@@ -283,6 +363,8 @@ FRAME_TYPES = {
         10: {
             10: Connection.Start,
             11: Connection.StartOk,
+            20: Connection.Secure,
+            21: Connection.SecureOk,
             30: Connection.Tune,
             31: Connection.TuneOk,
             40: Connection.Open,
@@ -300,7 +382,9 @@ FRAME_TYPES = {
         },
         40: {
             10: Exchange.Declare,
-            11: Exchange.DeclareOk
+            11: Exchange.DeclareOk,
+            20: Exchange.Delete,
+            21: Exchange.DeleteOk
         },
         50: {
             10: Queue.Declare,
@@ -309,7 +393,10 @@ FRAME_TYPES = {
             21: Queue.BindOk
         },
         60: {
-            40: Basic.Publish
+            40: Basic.Publish,
+            20: Basic.Consume,
+            21: Basic.ConsumeOk,
+            60: Basic.Deliver
         },
     },
     2: Header,
@@ -337,8 +424,15 @@ def decode_frame(frame_bytes):
         raise SfwException('Internal', 'Wrong frame end')
     if frame_size.decoded_value != len(frame_payload):
         raise SfwException('Internal', 'Wrong frame size')
-    if frame_type != Octet(1):
+    if frame_type == Octet(8):
         return FRAME_TYPES[frame_type.decoded_value](), frame_bytes[frame_size.decoded_value+7+1:]
+    elif frame_type in [Octet(2), Octet(3)]:
+        result = []
+        for i in FRAME_TYPES[frame_type.decoded_value].type_structure:
+            payload_part, frame_payload = i.decode(frame_payload)
+            result.append(payload_part.decoded_value)
+        return FRAME_TYPES[frame_type.decoded_value](*result, channel_number=frame_channel.decoded_value),\
+               frame_bytes[frame_size.decoded_value+7+1:]
     else:
         method_bytes = frame_payload
         (class_id, _), (method_id, _), method_payload = ShortUint.decode(method_bytes[0:2]), ShortUint.decode(method_bytes[2:4]), method_bytes[4: len(method_bytes)]
