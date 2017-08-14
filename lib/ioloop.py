@@ -1,3 +1,4 @@
+import time
 import select
 
 IOLOOP = None
@@ -27,6 +28,10 @@ class IOLoop:
     def __init__(self):
         self.read = select.EPOLLIN
         self.write = select.EPOLLOUT
+        self.timeout_time_expired = None
+        self.fileno = None
+        self.app = None
+        self.app_processor = None
 
     @staticmethod
     def current():
@@ -42,8 +47,10 @@ class IOLoop:
         app.processor = self.app_processor
         self.app_processor.send(None)
 
-    def modify_to_read(self):
+    def modify_to_read(self, timeout_in_seconds=None):
         EPOOL.modify(self.fileno, select.EPOLLIN | select.EPOLLERR | select.EPOLLPRI | select.EPOLLRDBAND | select.EPOLLHUP | select.EPOLLRDHUP)
+        if timeout_in_seconds:
+            self.timeout_time_expired = time.time() + timeout_in_seconds
 
     def modify_to_write(self):
         EPOOL.modify(self.fileno, select.EPOLLOUT | select.EPOLLERR | select.EPOLLHUP | select.EPOLLRDHUP)
@@ -51,20 +58,33 @@ class IOLoop:
     def unregistered(self):
         EPOOL.unregister(self.fileno)
 
-    def handle_read(self):
-        self.app.handle_read()
+    def handle_read(self, by_timeout=False):
+        self.app.handle_read(by_timeout=by_timeout)
 
     def handle_write(self):
         self.app.handle_write()
 
     def start(self):
         while 1:
-            events = EPOOL.poll()
+            if self.timeout_time_expired:
+                timeout = (self.timeout_time_expired - int(time.time()))
+                if timeout < 0:
+                    self.timeout_time_expired = None
+                    timeout = -1
+                    # timeout happend, sleep timeout passed
+                    self.timeout_time_expired = None
+                    self.handle_read(by_timeout=True)
+            else:
+                timeout = -1
+            print('POOL ', str(int(time.time())), timeout, self.timeout_time_expired)
+            events = EPOOL.poll(timeout)
             for fd, event in events:
                 # TODO add more event type checking
                 if event & (select.EPOLLIN | select.EPOLLPRI | select.EPOLLRDBAND):
+                    # print('IN: ', str(int(time.time())),events, timeout, self.timeout_time_expired)
                     self.handle_read()
                 elif event & select.EPOLLOUT:
+                    # print('OUT: ' ,  str(int(time.time())), events, timeout, self.timeout_time_expired)
                     self.handle_write()
                 elif event & select.EPOLLHUP:
                     pass
@@ -74,3 +94,8 @@ class IOLoop:
                     pass
                 else:
                     raise IOLoopException('IOLOOP', 'Unknown error socket state')
+            if not events:
+                # timeout happend, sleep timeout passed
+                # print('No: ',  str(int(time.time())) , events, timeout, self.timeout_time_expired)
+                self.timeout_time_expired = None
+                self.handle_read(by_timeout=True)

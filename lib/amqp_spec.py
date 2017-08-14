@@ -28,6 +28,7 @@ class Frame:
     frame_end = Octet(206)
     frame_type = None
     type_structure = [Octet, ShortUint, LongUint]
+    dont_wait_response = 0
 
     def __init__(self, *args, channel_number=0):
         self._encoded = b''
@@ -77,6 +78,7 @@ class Method(Frame):
 class Header(Frame):
     frame_type = 2
     type_structure = [ShortUint, ShortUint, LongLongUint, HeaderPropertyFlag, HeaderPropertyValue]  # ShortString - really many bit for header
+    dont_wait_response = 1
 
     @multimethod
     def __init__(self, class_id, weight=0, body_size=0, properties=None, channel_number=0):
@@ -93,6 +95,7 @@ class Header(Frame):
 class Content(Frame):
     frame_type = 3
     type_structure = [AmqpType]
+    dont_wait_response = 1
 
     @multimethod
     def __init__(self, content='', channel_number=0):
@@ -128,6 +131,7 @@ class Connection:
         type_structure = [ShortUint, LongUint, ShortUint]
         class_id = 10
         method_id = 31
+        dont_wait_response = 1
 
         @multimethod
         def __init__(self, channel_max=0, frame_max=131072, heartbeat_interval=60, channel_number=0):
@@ -263,6 +267,7 @@ class Basic:
         type_structure = [ShortUint, ExchangeName, ShortString, Octet]
         class_id = 60
         method_id = 40
+        dont_wait_response = 1
 
         @multimethod
         def __init__(self, exchange_name, routing_key, mandatory=0, immediate=0, channel_number=0):
