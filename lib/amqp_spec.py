@@ -8,6 +8,7 @@ from exceptions import SfwException
 
 # TODO do all classes byte like object to remove encode from socket.send
 # TODO use memoryview, avoid too much copping
+# TODO use slots
 
 THIS_MODULE = sys.modules[__name__]
 
@@ -149,6 +150,7 @@ class Connection:
 
         @multimethod
         def __init__(self, peer_properties, mechanism, credential, locale='en_US', channel_number=0):
+            self.set_params(locals())
             super().__init__(peer_properties, mechanism, credential, locale, channel_number=channel_number)
 
     class Secure(Method):
@@ -174,6 +176,7 @@ class Connection:
 
         @multimethod
         def __init__(self, channel_max=0, frame_max=131072, heartbeat_interval=60, channel_number=0):
+            self.set_params(locals())
             super().__init__(channel_max, frame_max, heartbeat_interval, channel_number=channel_number)
 
     class Open(Method):
@@ -183,6 +186,7 @@ class Connection:
 
         @multimethod
         def __init__(self, virtual_host='/', channel_number=0):
+            self.set_params(locals())
             reserved1 = ''
             reserved2 = 0
             super().__init__(virtual_host, reserved1, reserved2, channel_number=channel_number)
@@ -199,6 +203,7 @@ class Connection:
 
         @multimethod
         def __init__(self, reply_code=0, reply_text='', class_id=10, method_id=50, channel_number=0):
+            self.set_params(locals())
             super().__init__(reply_code, reply_text, class_id, method_id, channel_number=channel_number)
 
     class CloseOk(Method):
@@ -215,6 +220,7 @@ class Channel:
 
         @multimethod
         def __init__(self, channel_number=0):
+            self.set_params(locals())
             reserved1 = ''
             super().__init__(reserved1, channel_number=channel_number)
 
@@ -230,6 +236,7 @@ class Channel:
 
         @multimethod
         def __init__(self, active=1, channel_number=0):
+            self.set_params(locals())
             super().__init__(active, channel_number=channel_number)
 
     class FlowOk(Method):
@@ -244,6 +251,7 @@ class Channel:
 
         @multimethod
         def __init__(self, reply_code=0, reply_text='', class_id=20, method_id=40, channel_number=0):
+            self.set_params(locals())
             super().__init__(reply_code, reply_text, class_id, method_id, channel_number=channel_number)
 
     class CloseOk(Method):
@@ -260,6 +268,7 @@ class Exchange:
 
         @multimethod
         def __init__(self, exchange_name, exchange_type='topic', do_not_create=0, durable=1, auto_deleted=0, internal=0, no_wait=0, properties=None, channel_number=0):
+            self.set_params(locals())
             reserved1 = 0
             properties = {} if not properties else properties
             super().__init__(reserved1, exchange_name, exchange_type, do_not_create, durable, auto_deleted, internal, no_wait, properties, channel_number=channel_number)
@@ -276,6 +285,7 @@ class Exchange:
 
         @multimethod
         def __init__(self, exchange_name, delete_if_unused=0, no_wait=0, channel_number=0):
+            self.set_params(locals())
             reserved1 = 0
             super().__init__(reserved1, exchange_name, delete_if_unused, no_wait, channel_number=channel_number)
 
@@ -293,6 +303,7 @@ class Queue:
 
         @multimethod
         def __init__(self, queue_name, passive=0, durable=1, exclusive=0, auto_deleted=0, no_wait=0, properties=None, channel_number=0):
+            self.set_params(locals())
             reserved1 = 0
             properties = {} if not properties else properties
             super().__init__(reserved1, queue_name, passive, durable, exclusive, auto_deleted, no_wait, properties, channel_number=channel_number)
@@ -309,6 +320,7 @@ class Queue:
 
         @multimethod
         def __init__(self, queue_name, exchange_name, routing_key, no_wait=0, properties=None, channel_number=0):
+            self.set_params(locals())
             reserved1 = 0
             properties = {} if not properties else properties
             super().__init__(reserved1, queue_name, exchange_name, routing_key, no_wait, properties, channel_number=channel_number)
@@ -328,6 +340,7 @@ class Basic:
 
         @multimethod
         def __init__(self, exchange_name, routing_key, mandatory=0, immediate=0, channel_number=0):
+            self.set_params(locals())
             reserved1 = 0
             super().__init__(reserved1, exchange_name, routing_key, mandatory, immediate, channel_number=channel_number)
 
@@ -338,6 +351,7 @@ class Basic:
 
         @multimethod
         def __init__(self, queue_name, consumer_tag='', non_local=1, no_ack=0, exclusize=0, no_wait=0, properties=None, channel_number=0):
+            self.set_params(locals())
             reserved1 = 0
             properties = {} if not properties else properties
             super().__init__(reserved1, queue_name, consumer_tag, non_local, no_ack, exclusize, no_wait, properties, channel_number=channel_number)
@@ -354,7 +368,6 @@ class Basic:
 
         @multimethod
         def __init__(self, consumer_tag, delivery_tag, redelivered, exchange_name, routing_key, channel_number=0):
-            # TODO cache it on first call or on compile time
             self.set_params(locals())
             super().__init__(consumer_tag, delivery_tag, redelivered, exchange_name, routing_key, channel_number=channel_number)
 
@@ -366,6 +379,7 @@ class Basic:
 
         @multimethod
         def __init__(self, delivery_tag, multiple=0, channel_number=0):
+            self.set_params(locals())
             super().__init__(delivery_tag, multiple, channel_number=channel_number)
 
 # TODO construct it dynamic in runtime
