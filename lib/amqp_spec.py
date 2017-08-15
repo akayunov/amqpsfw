@@ -60,6 +60,9 @@ class Frame:
     def __str__(self):
         return str(type(self)) + ' ' + str(self.encoded)
 
+    def set_params(self, params_dict):
+        for k, v in params_dict.items():
+            setattr(self, k, v)
 
 class ProtocolHeader(Frame):
     frame_end = AmqpType('')
@@ -181,6 +184,10 @@ class Connection:
         class_id = 10
         method_id = 50
 
+        @multimethod
+        def __init__(self, reply_code=0, reply_text='', class_id=10, method_id=50, channel_number=0):
+            super().__init__(reply_code, reply_text, class_id, method_id, channel_number=channel_number)
+
     class CloseOk(Method):
         type_structure = []
         class_id = 10
@@ -221,6 +228,10 @@ class Channel:
         type_structure = [ShortUint, ShortString, ShortUint, ShortUint]
         class_id = 20
         method_id = 40
+
+        @multimethod
+        def __init__(self, reply_code=0, reply_text='', class_id=20, method_id=40, channel_number=0):
+            super().__init__(reply_code, reply_text, class_id, method_id, channel_number=channel_number)
 
     class CloseOk(Method):
         type_structure = []
@@ -342,6 +353,8 @@ class Basic:
 
         @multimethod
         def __init__(self, consumer_tag, delivery_tag, redelivered, exchange_name, routing_key, channel_number=0):
+            # TODO cache it on first call or on compile time
+            self.set_params(locals())
             bits = redelivered * 2 ** 0
             # <<< if bit go together when pack it in one octet
             super().__init__(consumer_tag, delivery_tag, bits, exchange_name, routing_key, channel_number=channel_number)
@@ -350,9 +363,10 @@ class Basic:
         type_structure = [DeliveryTag, Bit]
         class_id = 60
         method_id = 80
+        dont_wait_response = 1
 
         @multimethod
-        def __init__(self, delivery_tag, multiple, channel_number=0):
+        def __init__(self, delivery_tag, multiple=0, channel_number=0):
             bits = multiple * 2 ** 0
             # <<< if bit go together when pack it in one octet
             super().__init__(delivery_tag, bits, channel_number=channel_number)
@@ -407,7 +421,7 @@ FRAME_TYPES = {
 
 def decode_frame(frame_bytes):
     if len(frame_bytes) < 7:
-        return None, b''
+        return None, frame_bytes
     if frame_bytes.startswith(b'AMQP') and len(frame_bytes) > 7:
         result = []
         for i in ProtocolHeader.type_structure:
@@ -418,7 +432,7 @@ def decode_frame(frame_bytes):
     (frame_type, _), (frame_channel, _), (frame_size, _) = Octet.decode(bytes([frame_bytes[0]])), ShortUint.decode(frame_bytes[1:3]), LongUint.decode(frame_bytes[3:7])
     if frame_size.decoded_value > len(frame_bytes[7:]) - 1:
         # data is non efficient
-        return None, b''
+        return None, frame_bytes
     frame_payload, frame_end = frame_bytes[7:frame_size.decoded_value+7], frame_bytes[frame_size.decoded_value+7]
     if frame_end != frame_end:
         raise SfwException('Internal', 'Wrong frame end')

@@ -3,7 +3,8 @@ import select
 
 IOLOOP = None
 EPOOL = select.epoll()
-
+READ = 'read'
+WRITE = 'write'
 
 class IOLoopException(Exception):
     def __init__(self, code, msg):
@@ -26,6 +27,7 @@ class IOLoop:
         return self
 
     def __init__(self):
+        self.state = READ
         self.read = select.EPOLLIN
         self.write = select.EPOLLOUT
         self.timeout_time_expired = None
@@ -48,11 +50,13 @@ class IOLoop:
         self.app_processor.send(None)
 
     def modify_to_read(self, timeout_in_seconds=None):
+        self.state = READ
         EPOOL.modify(self.fileno, select.EPOLLIN | select.EPOLLERR | select.EPOLLPRI | select.EPOLLRDBAND | select.EPOLLHUP | select.EPOLLRDHUP)
         if timeout_in_seconds:
             self.timeout_time_expired = time.time() + timeout_in_seconds
 
     def modify_to_write(self, timeout_in_seconds=None):
+        self.state = WRITE
         EPOOL.modify(self.fileno, select.EPOLLOUT | select.EPOLLERR | select.EPOLLHUP | select.EPOLLRDHUP)
         if timeout_in_seconds:
             self.timeout_time_expired = time.time() + timeout_in_seconds
@@ -78,7 +82,7 @@ class IOLoop:
                     self.handle_read(by_timeout=True)
             else:
                 timeout = -1
-            print('POOL ', str(int(time.time())), timeout, self.timeout_time_expired)
+            print('POOL ', str(int(time.time())), timeout, self.timeout_time_expired, self.state)
             events = EPOOL.poll(timeout)
             for fd, event in events:
                 # TODO add more event type checking

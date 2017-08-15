@@ -18,7 +18,6 @@ class Application:
 
     def parse_buffer(self):
         frame, buffer_in = amqp_spec.decode_frame(self.buffer_in)
-        print('IN: ' + str(int(time.time())) + ' ' + str(frame))
         self.buffer_in = buffer_in
         return frame
 
@@ -33,41 +32,53 @@ class Application:
             self.processor.send(None)
         else:
             self.buffer_in += self.socket.recv(4096)
-            frame = self.parse_buffer()
-            if frame:
+            for frame in iter(self.parse_buffer, None):
+                print('IN: ' + str(int(time.time())) + ' ' + str(frame))
                 if type(frame) is amqp_spec.Heartbeat:
                     self.write(amqp_spec.Heartbeat())
                 else:
                     self.processor.send(frame)
-                    return
-            else:
-                raise SfwException('Internal', 'Uknown handle read')
 
     def handle_write(self):
         # TODO use more optimize structure for slice to avoid copping
-        if not self.output_buffer:
-            frame = self.output_buffer_frames.popleft()
-            # if type(frame) == amqp_spec.Header:
-            #     import pdb;pdb.set_trace()
-            self.output_buffer = [type(frame), frame.encoded]
-            if type(frame) is amqp_spec.EmptyFrame:
-                for i in list(self.output_buffer_frames):
-                    self.output_buffer[1] += i.encoded
+        if len(self.output_buffer_frames) > 0:
+            last_frame = self.output_buffer_frames.pop()
+            self.output_buffer = [last_frame.dont_wait_response, b''.join([i.encoded for i in self.output_buffer_frames]) + last_frame.encoded]
+            self.output_buffer_frames = deque()
         writed_bytes = self.socket.send(self.output_buffer[1])
         self.output_buffer[1] = self.output_buffer[1][writed_bytes:]
         if not self.output_buffer[1]:
-            # if there is another frame in byffer it mean caller don't wait responce and do some self.write(frame) without waiting response
-            try:
-                frame = self.output_buffer_frames.popleft()
-            except IndexError:
-                frame = None
-            if frame:
-                self.output_buffer = [type(frame), frame.encoded]
-            else:
-                IOLoop.current().modify_to_read()
-                if self.output_buffer[0].dont_wait_response:
-                    self.processor.send(None)
-                self.output_buffer = None
+            IOLoop.current().modify_to_read()
+            if self.output_buffer[0]:
+                self.processor.send(None)
+            self.output_buffer = None
+
+    # def handle_write_old(self):
+    #     # TODO use more optimize structure for slice to avoid copping
+    #     if not self.output_buffer:
+    #         frame = self.output_buffer_frames.popleft()
+    #         # if type(frame) == amqp_spec.Header:
+    #         #     import pdb;pdb.set_trace()
+    #         self.output_buffer = [type(frame), frame.encoded]
+    #         if type(frame) is amqp_spec.EmptyFrame:
+    #             for i in list(self.output_buffer_frames):
+    #                 self.output_buffer[1] += i.encoded
+    #     writed_bytes = self.socket.send(self.output_buffer[1])
+    #     self.output_buffer[1] = self.output_buffer[1][writed_bytes:]
+    #     if not self.output_buffer[1]:
+    #         # if there is another frame in byffer it mean caller don't wait responce and do some self.write(frame) without waiting response
+    #         try:
+    #             frame = self.output_buffer_frames.popleft()
+    #         except IndexError:
+    #             frame = None
+    #         if frame:
+    #             self.output_buffer = [type(frame), frame.encoded]
+    #             # TODO try to do one more send buffer not full yet
+    #         else:
+    #             IOLoop.current().modify_to_read()
+    #             if self.output_buffer[0].dont_wait_response:
+    #                 self.processor.send(None)
+    #             self.output_buffer = None
 
     def sleep(self, n):
         # flush all buffers while sleep
@@ -81,7 +92,8 @@ class Application:
 
         return self.socket
 
-    def processor(self):
+    def connect(self):
+        # TODO devide it more granular
         protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', 0, 0, 9, 1)
         start = yield self.write(protocol_header)
 
@@ -89,7 +101,7 @@ class Application:
         start_ok = amqp_spec.Connection.StartOk({'host': ['S', 'localhost']}, 'PLAIN', credential=['root', 'privetserver'])
         tune = yield self.write(start_ok)
 
-        tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=100)
+        tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=1)
         # yield self.write(tune_ok)  # it works too!!!! and frame must be send to server
         self.write(tune_ok)  # it works too!!!! and frame will be send to server on next yield
 
@@ -111,13 +123,5 @@ class Application:
         bind = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=channel_number)
         bind_ok = yield self.write(bind)
 
-        content = 'qrqwrq'
-        r = [
-            amqp_spec.Basic.Publish(exchange_name='message', routing_key='text.tratata', channel_number=channel_number),
-            amqp_spec.Header(class_id=amqp_spec.Basic.Publish.class_id, body_size=len(content), properties={'content-type': 'application/json'}, channel_number=channel_number),
-            amqp_spec.Content(content=content.encode('utf8'), channel_number=channel_number)
-        ]
-        publish_methods = r
-        for i in publish_methods:
-            self.write(i)
-            yield self.sleep(3)
+    def processor(self):
+        yield from self.connect()

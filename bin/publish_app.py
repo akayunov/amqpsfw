@@ -9,34 +9,8 @@ import amqp_spec
 
 class PublishAplication(application.Application):
     def processor(self):
-        protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', 0, 0, 9, 1)
-        start = yield self.write(protocol_header)
-
         channel_number = 1
-        start_ok = amqp_spec.Connection.StartOk({'host': ['S', 'localhost']}, 'PLAIN', credential=['root', 'privetserver'])
-        tune = yield self.write(start_ok)
-
-        tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=100)
-        # yield self.write(tune_ok)  # it works too!!!! and frame must be send to server
-        self.write(tune_ok)  # it works too!!!! and frame will be send to server on next yield
-
-        c_open = amqp_spec.Connection.Open(virtual_host='/')
-        openok = yield self.write(c_open)
-
-        ch_open = amqp_spec.Channel.Open(channel_number=channel_number)
-        ch_open_ok = yield self.write(ch_open)
-
-        flow = amqp_spec.Channel.Flow(channel_number=channel_number)
-        flow_ok = yield self.write(flow)
-
-        ex_declare = amqp_spec.Exchange.Declare('message', channel_number=channel_number)
-        declare_ok = yield self.write(ex_declare)
-
-        declare_q = amqp_spec.Queue.Declare(queue_name='text', channel_number=channel_number)
-        declare_q_ok = yield self.write(declare_q)
-
-        bind = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=channel_number)
-        bind_ok = yield self.write(bind)
+        yield from self.connect()
 
         for i in range(200):
             content = 'qrqwrq' + str(i)
@@ -49,6 +23,9 @@ class PublishAplication(application.Application):
             for i in publish_methods:
                 yield self.write(i)
                 #yield self.sleep(1)
+        yield self.write(amqp_spec.Channel.Close(channel_number=channel_number))
+        yield self.write(amqp_spec.Connection.Close())
+        exit(0)
 
 
 def start_aplication():
