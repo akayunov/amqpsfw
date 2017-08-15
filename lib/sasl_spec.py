@@ -1,7 +1,4 @@
-import struct
-from amqp_types import (AmqpType, Octet, String, LongUint, FieldTable, ShortString, LongString, Char, Path,
-                        LongLongUint, ExchangeName, Bit, QueueName, MessageCount)
-from exceptions import SfwException
+from amqp_types import AmqpType, Octet, String, LongString
 
 
 class Plain(AmqpType):

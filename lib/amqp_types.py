@@ -131,8 +131,57 @@ class Bool(Octet):
     pass
 
 
-class Bit(Octet):
-    pass
+class Bit0(AmqpType):
+    length = 0
+
+    def __init__(self, integers_array):
+        # TODO use <<
+        integers_array.reverse()
+        super().__init__(integers_array)
+        self.encoded = struct.pack('B', int(''.join([str(i) for i in integers_array]), base=2))
+
+    @classmethod
+    def decode(cls, binary_data):
+        # TODO use <<
+        qwe = list(str(bin(struct.unpack('B', bytes([binary_data[0]]))[0])).split('b')[1])
+        qwe = [int(i) for i in qwe]
+        integers_array = ([0, 0, 0, 0, 0] + qwe)[-1::-1][:cls.length]
+        integers_array.reverse()
+        return cls(integers_array), binary_data[1:]
+
+# TODO fix it
+
+
+class Bit1(Bit0):
+    length = 1
+
+
+class Bit2(Bit0):
+    length = 2
+
+
+class Bit3(Bit0):
+    length = 3
+
+
+class Bit4(Bit0):
+    length = 4
+
+
+class Bit5(Bit0):
+    length = 5
+
+
+class Bit6(Bit0):
+    length = 6
+
+
+class Bit7(Bit0):
+    length = 7
+
+
+class Bit8(Bit0):
+    length = 8
 
 
 class ShortUint(AmqpType):

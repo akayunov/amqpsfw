@@ -1,7 +1,8 @@
 import functools
 import sys
 from amqp_types import (AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, String,
-                        LongLongUint, ExchangeName, Bit, QueueName, MessageCount, HeaderPropertyFlag, HeaderPropertyValue, ConsumerTag, DeliveryTag)
+                        LongLongUint, ExchangeName, QueueName, MessageCount, HeaderPropertyFlag, HeaderPropertyValue, ConsumerTag, DeliveryTag,
+                        Bit5, Bit0, Bit1, Bit2, Bit3, Bit4, Bit6, Bit7, Bit8)
 import sasl_spec
 from exceptions import SfwException
 
@@ -46,8 +47,20 @@ class Frame:
         self.encoded = (Octet(self.frame_type) + ShortUint(self.channel_number) + LongUint(len(self.payload)) + self.payload).encoded
 
     def set_payload(self, args):
+        bit_field = []
+        bit_type = None
         for arg, arg_type in zip(args, self.type_structure):
+            if issubclass(arg_type, Bit0):
+                bit_type = arg_type
+                bit_field.append(arg)
+                continue
+            if bit_field:
+                self.payload += bit_type(bit_field)
+                bit_field = []
+                bit_type = None
             self.payload += arg_type(arg)
+        if bit_field:
+            self.payload += bit_type(bit_field)
 
     @property
     def encoded(self):
@@ -164,7 +177,7 @@ class Connection:
             super().__init__(channel_max, frame_max, heartbeat_interval, channel_number=channel_number)
 
     class Open(Method):
-        type_structure = [Path, ShortString, Bit]
+        type_structure = [Path, ShortString, Bit1]
         class_id = 10
         method_id = 40
 
@@ -211,7 +224,7 @@ class Channel:
         method_id = 11
 
     class Flow(Method):
-        type_structure = [Bit]
+        type_structure = [Bit1]
         class_id = 20
         method_id = 20
 
@@ -220,7 +233,7 @@ class Channel:
             super().__init__(active, channel_number=channel_number)
 
     class FlowOk(Method):
-        type_structure = [Bit]
+        type_structure = [Bit1]
         class_id = 20
         method_id = 20
 
@@ -241,7 +254,7 @@ class Channel:
 
 class Exchange:
     class Declare(Method):
-        type_structure = [ShortUint, ExchangeName, ShortString, Octet, FieldTable]
+        type_structure = [ShortUint, ExchangeName, ShortString, Bit5, Bit5, Bit5, Bit5, Bit5, FieldTable]
         class_id = 40
         method_id = 10
 
@@ -249,9 +262,7 @@ class Exchange:
         def __init__(self, exchange_name, exchange_type='topic', do_not_create=0, durable=1, auto_deleted=0, internal=0, no_wait=0, properties=None, channel_number=0):
             reserved1 = 0
             properties = {} if not properties else properties
-            bits = do_not_create * 2 ** 0 + durable * 2 ** 1 + auto_deleted * 2 ** 2 + internal * 2 ** 3 + no_wait * 2 ** 4
-            # <<< if bit go together when pack it in one octet
-            super().__init__(reserved1, exchange_name, exchange_type, bits, properties, channel_number=channel_number)
+            super().__init__(reserved1, exchange_name, exchange_type, do_not_create, durable, auto_deleted, internal, no_wait, properties, channel_number=channel_number)
 
     class DeclareOk(Method):
         type_structure = []
@@ -259,16 +270,14 @@ class Exchange:
         method_id = 11
 
     class Delete(Method):
-        type_structure = [ShortUint, ExchangeName, Octet]
+        type_structure = [ShortUint, ExchangeName, Bit2, Bit2]
         class_id = 40
         method_id = 20
 
         @multimethod
         def __init__(self, exchange_name, delete_if_unused=0, no_wait=0, channel_number=0):
             reserved1 = 0
-            bits = delete_if_unused * 2 ** 0 + no_wait * 2 ** 1
-            # <<< if bit go together when pack it in one octet
-            super().__init__(reserved1, exchange_name, bits, channel_number=channel_number)
+            super().__init__(reserved1, exchange_name, delete_if_unused, no_wait, channel_number=channel_number)
 
     class DeleteOk(Method):
         type_structure = []
@@ -278,7 +287,7 @@ class Exchange:
 
 class Queue:
     class Declare(Method):
-        type_structure = [ShortUint, QueueName, Octet, FieldTable]
+        type_structure = [ShortUint, QueueName, Bit5, Bit5, Bit5, Bit5, Bit5, FieldTable]
         class_id = 50
         method_id = 10
 
@@ -286,10 +295,7 @@ class Queue:
         def __init__(self, queue_name, passive=0, durable=1, exclusive=0, auto_deleted=0, no_wait=0, properties=None, channel_number=0):
             reserved1 = 0
             properties = {} if not properties else properties
-            # TODO use <<
-            bits = passive * 2 ** 0 + durable * 2 ** 1 + exclusive * 2 ** 2 + auto_deleted * 2 ** 3 + no_wait * 2 ** 4
-            # <<< if bit go together when pack it in one octet
-            super().__init__(reserved1, queue_name, bits, properties, channel_number=channel_number)
+            super().__init__(reserved1, queue_name, passive, durable, exclusive, auto_deleted, no_wait, properties, channel_number=channel_number)
 
     class DeclareOk(Method):
         type_structure = [QueueName, MessageCount, LongUint]
@@ -297,7 +303,7 @@ class Queue:
         method_id = 11
 
     class Bind(Method):
-        type_structure = [ShortUint, QueueName, ExchangeName, ShortString, Bit, FieldTable]
+        type_structure = [ShortUint, QueueName, ExchangeName, ShortString, Bit1, FieldTable]
         class_id = 50
         method_id = 20
 
@@ -315,7 +321,7 @@ class Queue:
 
 class Basic:
     class Publish(Method):
-        type_structure = [ShortUint, ExchangeName, ShortString, Octet]
+        type_structure = [ShortUint, ExchangeName, ShortString, Bit2, Bit2]
         class_id = 60
         method_id = 40
         dont_wait_response = 1
@@ -323,13 +329,10 @@ class Basic:
         @multimethod
         def __init__(self, exchange_name, routing_key, mandatory=0, immediate=0, channel_number=0):
             reserved1 = 0
-            # TODO co_varname count local variable too
-            bits = mandatory * 2 ** 0 + immediate * 2 ** 1
-            # <<< if bit go together when pack it in one octet
-            super().__init__(reserved1, exchange_name, routing_key, bits, channel_number=channel_number)
+            super().__init__(reserved1, exchange_name, routing_key, mandatory, immediate, channel_number=channel_number)
 
     class Consume(Method):
-        type_structure = [ShortUint, QueueName, ConsumerTag, Bit, FieldTable]
+        type_structure = [ShortUint, QueueName, ConsumerTag, Bit4, Bit4, Bit4, Bit4, FieldTable]
         class_id = 60
         method_id = 20
 
@@ -337,9 +340,7 @@ class Basic:
         def __init__(self, queue_name, consumer_tag='', non_local=1, no_ack=0, exclusize=0, no_wait=0, properties=None, channel_number=0):
             reserved1 = 0
             properties = {} if not properties else properties
-            bits = non_local * 2 ** 0 + no_ack * 2 ** 1 + exclusize * 2 ** 2 + no_wait * 2 ** 3
-            # <<< if bit go together when pack it in one octet
-            super().__init__(reserved1, queue_name, consumer_tag, bits, properties, channel_number=channel_number)
+            super().__init__(reserved1, queue_name, consumer_tag, non_local, no_ack, exclusize, no_wait, properties, channel_number=channel_number)
 
     class ConsumeOk(Method):
         type_structure = [ConsumerTag]
@@ -347,7 +348,7 @@ class Basic:
         method_id = 21
 
     class Deliver(Method):
-        type_structure = [ConsumerTag, DeliveryTag, Bit, ExchangeName, ShortString]
+        type_structure = [ConsumerTag, DeliveryTag, Bit1, ExchangeName, ShortString]
         class_id = 60
         method_id = 60
 
@@ -355,21 +356,17 @@ class Basic:
         def __init__(self, consumer_tag, delivery_tag, redelivered, exchange_name, routing_key, channel_number=0):
             # TODO cache it on first call or on compile time
             self.set_params(locals())
-            bits = redelivered * 2 ** 0
-            # <<< if bit go together when pack it in one octet
-            super().__init__(consumer_tag, delivery_tag, bits, exchange_name, routing_key, channel_number=channel_number)
+            super().__init__(consumer_tag, delivery_tag, redelivered, exchange_name, routing_key, channel_number=channel_number)
 
     class Ack(Method):
-        type_structure = [DeliveryTag, Bit]
+        type_structure = [DeliveryTag, Bit1]
         class_id = 60
         method_id = 80
         dont_wait_response = 1
 
         @multimethod
         def __init__(self, delivery_tag, multiple=0, channel_number=0):
-            bits = multiple * 2 ** 0
-            # <<< if bit go together when pack it in one octet
-            super().__init__(delivery_tag, bits, channel_number=channel_number)
+            super().__init__(delivery_tag, multiple, channel_number=channel_number)
 
 # TODO construct it dynamic in runtime
 FRAME_TYPES = {
@@ -452,8 +449,19 @@ def decode_frame(frame_bytes):
         (class_id, _), (method_id, _), method_payload = ShortUint.decode(method_bytes[0:2]), ShortUint.decode(method_bytes[2:4]), method_bytes[4: len(method_bytes)]
         payload_bytes = method_payload
         result = []
+        bit_filed_flag = None
         for i in FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value].type_structure:
+            if issubclass(i, Bit0):
+                bit_filed_flag = i
+                continue
+            if bit_filed_flag:
+                payload_part, payload_bytes = bit_filed_flag.decode(payload_bytes)
+                bit_filed_flag = None
+                result.extend(payload_part.decoded_value)
             payload_part, payload_bytes = i.decode(payload_bytes)
             result.append(payload_part.decoded_value)
+        if bit_filed_flag:
+            payload_part, payload_bytes = bit_filed_flag.decode(payload_bytes)
+            result.extend(payload_part.decoded_value)
         return FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value](*result, channel_number=frame_channel.decoded_value),\
                frame_bytes[frame_size.decoded_value+7+1:]
