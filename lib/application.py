@@ -117,6 +117,8 @@ class Application:
         self.socket = socket.socket(af, socktype, proto)
         self.socket.connect(sa)
         self.fileno = self.socket.fileno()
+        protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', 0, 0, 9, 1)
+        self.socket.send(protocol_header.encoded)
         return self.socket
 
 

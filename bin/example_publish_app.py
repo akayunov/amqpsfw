@@ -40,8 +40,6 @@ def start_aplication():
     # TODO remove it
     app.processor = app.processor()
     app.processor.send(None)
-    protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', 0, 0, 9, 1)
-    app.write(protocol_header)
     #########################
     io_loop.start()
 

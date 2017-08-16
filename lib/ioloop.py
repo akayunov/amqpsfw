@@ -2,6 +2,7 @@ import time
 import select
 
 IOLOOP = None
+# TODO integration with asyncio
 
 
 class IOLoopException(Exception):
