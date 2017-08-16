@@ -29,16 +29,24 @@ class IOLoop:
         return self
 
     def __init__(self):
-        self.timeout_time_expired = None
         self.fileno = None
         self.app = None
         self.app_processor = None
         self.handler = None
         self.impl = select.epoll()
+        # TODO use heapq to sort callbacks by timeout
+        self.callbacks = {}
 
     @staticmethod
     def current():
         return IOLOOP
+
+    def call_later(self, duration, func):
+        when = int(time.time()) + duration
+        if when in self.callbacks:
+            self.callbacks[when].append(func)
+        else:
+            self.callbacks[when] = [func]
 
     def add_handler(self, fileno, handler, io_state):
         self.fileno = fileno
@@ -51,11 +59,24 @@ class IOLoop:
     def unregistered(self):
         self.impl.unregister(self.fileno)
 
+    def run_callbacks(self):
+        current_time = time.time()
+        callback_times = sorted(self.callbacks.keys())
+        for callback_time in callback_times:
+            if callback_time - current_time <= 0:
+                for c in self.callbacks[callback_time]:
+                    c()
+                del self.callbacks[callback_time]
+            else:
+                return callback_time - current_time
+        return -1
+
     def start(self):
         while 1:
-            timeout = -1
-            events = self.impl.poll(timeout)
-            print('POOL ', str(int(time.time())), timeout, self.timeout_time_expired, events)
+            next_timeout_callback = self.run_callbacks()
+            print('TIMEOUT: ', next_timeout_callback)
+            events = self.impl.poll(next_timeout_callback)
+            print('POOL ', str(int(time.time())), next_timeout_callback, events)
             for fd, event in events:
                 # TODO add more event type checking
                 if event & (select.EPOLLIN | select.EPOLLPRI | select.EPOLLRDBAND):
@@ -73,7 +94,4 @@ class IOLoop:
                 else:
                     raise IOLoopException('IOLOOP', 'Unknown error socket state')
             if not events:
-                # timeout occur, sleep timeout passed
-                # print('No: ',  str(int(time.time())) , events, timeout, self.timeout_time_expired)
-                self.timeout_time_expired = None
-                self.handler(self.fileno, (select.EPOLLIN | select.EPOLLPRI | select.EPOLLRDBAND))
+                self.run_callbacks()

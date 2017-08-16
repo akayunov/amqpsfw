@@ -23,7 +23,7 @@ class PublishAplication(application.Application):
                 amqp_spec.Content(content=content, channel_number=channel_number)
             ]
             publish_methods = r
-            #yield self.sleep(1)
+            yield self.sleep(1)
             for i in publish_methods:
                 yield self.write(i)
         yield self.write(amqp_spec.Channel.Close(channel_number=channel_number))

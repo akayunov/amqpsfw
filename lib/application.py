@@ -24,17 +24,17 @@ class Application:
         self.buffer_in = buffer_in
         return frame
 
-    def handler(self, fd, events):
+    def handler(self, fd, event):
         # TODO add more events type
-        if events & self.ioloop.READ:
+        if event & self.ioloop.READ or not event:
             self.handle_read()
-        elif events & self.ioloop.WRITE:
+        elif event & self.ioloop.WRITE:
             self.handle_write()
-        elif events & self.ioloop._EPOLLHUP:
+        elif event & self.ioloop._EPOLLHUP:
             pass
-        elif events & self.ioloop.ERROR:
+        elif event & self.ioloop.ERROR:
             pass
-        elif events & self.ioloop._EPOLLRDHUP:
+        elif event & self.ioloop._EPOLLRDHUP:
             pass
 
     def modify_to_read(self):
@@ -106,10 +106,29 @@ class Application:
     #                 self.processor.send(None)
     #             self.output_buffer = None
 
-    def sleep(self, n):
-        # TODO fix it
-        # flush all buffers while sleep
-        self.write(amqp_spec.EmptyFrame(), timeout_in_seconds=n)
+    # def sleep(self, n):
+    #     # TODO fix it
+    #     # flush all buffers while sleep
+    #     self.write(amqp_spec.EmptyFrame(), timeout_in_seconds=n)
+
+    def sleep(self, duration):
+        """Return a `.Future` that resolves after the given number of seconds.
+
+        When used with ``yield`` in a coroutine, this is a non-blocking
+        analogue to `time.sleep` (which should not be used in coroutines
+        because it is blocking)::
+
+            yield gen.sleep(0.5)
+
+        Note that calling this function on its own does nothing; you must
+        wait on the `.Future` it returns (usually by yielding it).
+
+        .. versionadded:: 4.1
+        """
+        from functools import partial
+        self.write(amqp_spec.EmptyFrame(), timeout_in_seconds=duration)
+        self.ioloop.current().call_later(duration, partial(next, self.processor))
+        return
 
     def start(self):
         res = socket.getaddrinfo(self.host, self.port, socket.AF_INET, socket.SOCK_STREAM)
@@ -131,7 +150,7 @@ class Application:
         start_ok = amqp_spec.Connection.StartOk({'host': ['S', 'localhost']}, 'PLAIN', credential=['root', 'privetserver'])
         tune = yield self.write(start_ok)
 
-        tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=1)
+        tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=100)
         # yield self.write(tune_ok)  # it works too!!!! and frame must be send to server
         self.write(tune_ok)  # it works too!!!! and frame will be send to server on next yield
 
