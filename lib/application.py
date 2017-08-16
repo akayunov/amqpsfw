@@ -18,6 +18,8 @@ class Application:
         self.host = 'localhost'
         self.port = '5672'
         self.ioloop = ioloop
+        self.processor = self.processor()
+        self.processor.send(None)
 
     def parse_buffer(self):
         frame, buffer_in = amqp_spec.decode_frame(self.buffer_in)
@@ -79,55 +81,9 @@ class Application:
                 self.processor.send(None)
             self.output_buffer = None
 
-    # def handle_write_old(self):
-    #     # TODO use more optimize structure for slice to avoid copping
-    #     if not self.output_buffer:
-    #         frame = self.output_buffer_frames.popleft()
-    #         # if type(frame) == amqp_spec.Header:
-    #         #     import pdb;pdb.set_trace()
-    #         self.output_buffer = [type(frame), frame.encoded]
-    #         if type(frame) is amqp_spec.EmptyFrame:
-    #             for i in list(self.output_buffer_frames):
-    #                 self.output_buffer[1] += i.encoded
-    #     writed_bytes = self.socket.send(self.output_buffer[1])
-    #     self.output_buffer[1] = self.output_buffer[1][writed_bytes:]
-    #     if not self.output_buffer[1]:
-    #         # if there is another frame in byffer it mean caller don't wait responce and do some self.write(frame) without waiting response
-    #         try:
-    #             frame = self.output_buffer_frames.popleft()
-    #         except IndexError:
-    #             frame = None
-    #         if frame:
-    #             self.output_buffer = [type(frame), frame.encoded]
-    #             # TODO try to do one more send buffer not full yet
-    #         else:
-    #             self.ioloop.current().modify_to_read()
-    #             if self.output_buffer[0].dont_wait_response:
-    #                 self.processor.send(None)
-    #             self.output_buffer = None
-
-    # def sleep(self, n):
-    #     # TODO fix it
-    #     # flush all buffers while sleep
-    #     self.write(amqp_spec.EmptyFrame(), timeout_in_seconds=n)
-
     def sleep(self, duration):
-        """Return a `.Future` that resolves after the given number of seconds.
-
-        When used with ``yield`` in a coroutine, this is a non-blocking
-        analogue to `time.sleep` (which should not be used in coroutines
-        because it is blocking)::
-
-            yield gen.sleep(0.5)
-
-        Note that calling this function on its own does nothing; you must
-        wait on the `.Future` it returns (usually by yielding it).
-
-        .. versionadded:: 4.1
-        """
-        from functools import partial
         self.write(amqp_spec.EmptyFrame(), timeout_in_seconds=duration)
-        self.ioloop.current().call_later(duration, partial(next, self.processor))
+        self.ioloop.current().call_later(duration, next, self.processor)
         return
 
     def start(self):
@@ -140,11 +96,8 @@ class Application:
         self.socket.send(protocol_header.encoded)
         return self.socket
 
-
     def processor(self):
         # TODO devide it more granular
-        # protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', 0, 0, 9, 1)
-        # start = yield self.write(protocol_header)
         start = yield
         channel_number = 1
         start_ok = amqp_spec.Connection.StartOk({'host': ['S', 'localhost']}, 'PLAIN', credential=['root', 'privetserver'])

@@ -1,6 +1,6 @@
 import time
 import select
-
+from functools import partial
 IOLOOP = None
 # TODO integration with asyncio
 
@@ -41,12 +41,12 @@ class IOLoop:
     def current():
         return IOLOOP
 
-    def call_later(self, duration, func):
+    def call_later(self, duration, func, *args, **kwargs):
         when = int(time.time()) + duration
         if when in self.callbacks:
-            self.callbacks[when].append(func)
+            self.callbacks[when].append(partial(func, *args, **kwargs))
         else:
-            self.callbacks[when] = [func]
+            self.callbacks[when] = [partial(func, *args, **kwargs)]
 
     def add_handler(self, fileno, handler, io_state):
         self.fileno = fileno

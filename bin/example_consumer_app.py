@@ -30,11 +30,6 @@ def start_aplication():
     app = ConsumerAplication(io_loop)
     c_socket = app.start()
     io_loop.add_handler(c_socket.fileno(), app.handler, io_loop.READ)
-    #########################
-    # TODO remove it
-    app.processor = app.processor()
-    app.processor.send(None)
-    #########################
     io_loop.start()
 
 start_aplication()
