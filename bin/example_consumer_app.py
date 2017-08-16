@@ -1,4 +1,4 @@
-#!/home/akayunov/sfw/vienv/bin/python3
+#!/home/akayunov/sfw/venv/bin/python3
 import sys
 sys.path = ['/home/akayunov/sfw/sfw/lib'] + sys.path
 
@@ -10,7 +10,7 @@ import amqp_spec
 class ConsumerAplication(application.Application):
     def processor(self):
         channel_number = 1
-        yield from self.connect()
+        yield from super().processor()
         consume = amqp_spec.Basic.Consume(queue_name='text', consumer_tag='first_consumer', channel_number=channel_number)
         consume_ok = yield self.write(consume)
 
@@ -26,10 +26,18 @@ class ConsumerAplication(application.Application):
 
 
 def start_aplication():
-    app = ConsumerAplication()
-    c_socket = app.start()
     io_loop = ioloop.IOLoop()
-    io_loop.add_handler(c_socket.fileno(), app, io_loop.read)
+    app = ConsumerAplication(io_loop)
+    c_socket = app.start()
+    io_loop.add_handler(c_socket.fileno(), app.handler, io_loop.READ)
+    #########################
+    # TODO remove it
+    app.processor = app.processor()
+    app.processor.send(None)
+    protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', 0, 0, 9, 1)
+    app.write(protocol_header)
+    #########################
     io_loop.start()
 
 start_aplication()
+

@@ -107,6 +107,7 @@ class Application:
     #             self.output_buffer = None
 
     def sleep(self, n):
+        # TODO fix it
         # flush all buffers while sleep
         self.write(amqp_spec.EmptyFrame(), timeout_in_seconds=n)
 
