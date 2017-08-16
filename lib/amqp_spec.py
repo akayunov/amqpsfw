@@ -26,6 +26,7 @@ def multimethod(init):
     return wrapper
 
 
+# TODO do it as parent of Frame
 class EmptyFrame:
     dont_wait_response = 0
     encoded = b''
@@ -72,6 +73,7 @@ class Frame:
         self._encoded = value
 
     def __str__(self):
+        # TODO print all parameter by name and values NON binary data
         return str(type(self)) + ' ' + str(self.encoded)
 
     def set_params(self, params_dict):
