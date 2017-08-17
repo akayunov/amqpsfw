@@ -75,7 +75,7 @@ class IOLoop:
         while 1:
             next_timeout_callback = self.run_callbacks()
             print('TIMEOUT: ', next_timeout_callback)
-            events = self.impl.poll(next_timeout_callback)
+            events = self.impl.poll(next_timeout_callback)  ## signals interupt this call??
             print('POOL ', str(int(time.time())), next_timeout_callback, events)
             for fd, event in events:
                 # TODO add more event type checking

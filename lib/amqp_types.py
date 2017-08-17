@@ -1,4 +1,5 @@
 import struct
+from exceptions import SfwException
 
 # TODO use memory view on slicing
 # TODO it is just sfwtypes not AMQP because it used in sasl module
@@ -9,42 +10,25 @@ class AmqpType:
     def __init__(self, data=''):
         self.encoded = b''
         self.decoded_value = data
-        self.parts = [type(self)]  # TODO do we really need this?
 
     def __add__(self, other):
         result = AmqpType()
         if hasattr(other, 'encoded'):
             result.encoded = self.encoded + other.encoded
-            result.parts = self.parts + other.parts
         else:
             result.encoded = self.encoded + other
-            result.parts = self.parts + [other]
         return result
 
     def __iadd__(self, other):
         result = AmqpType()
         if hasattr(other, 'encoded'):
             result.encoded = self.encoded + other.encoded
-            result.parts = self.parts + other.parts
         else:
             result.encoded = self.encoded + other
-            result.parts = self.parts + [other]
         return result
 
     def __len__(self):
         return len(self.encoded)
-
-# # TODO do we really need this arter new argument parser???
-#     @staticmethod
-#     def join(array):
-#         result = AmqpType()
-#         for i in array:
-#             result = result + i
-#             if hasattr(i, 'parts'):
-#                 result.parts += i.parts
-#             else:
-#                 result.parts += type(i)
-#         return result
 
     def __str__(self):
         return str(type(self)) + ' ' + str(self.encoded)
@@ -59,18 +43,29 @@ class AmqpType:
 class String(AmqpType):
     def __init__(self, string_data):
         super().__init__(string_data)
+        if type(string_data) != str:
+            raise SfwException('Internal', 'String type requered for String type')
         self.encoded = string_data.encode('utf8')
 
     @classmethod
     def decode(cls, binary_data):
-        return cls(binary_data.decode('utf8')), binary_data[len(binary_data) + 1:]
+        return cls(binary_data.decode('utf8')), b''
+
+
+class Reserved(AmqpType):
+    pass
 
 
 class ShortString(AmqpType):
     def __init__(self, string_data):
         super().__init__(string_data)
         string_bytes = string_data.encode('utf8')
-        self.encoded = struct.pack('B', len(string_bytes)) + string_bytes
+        length = len(string_bytes)
+        if length > 255:
+            raise SfwException('Internal', 'String is too long for ShortString type')
+        if type(string_data) != str:
+            raise SfwException('Internal', 'String type requered for ShortString type')
+        self.encoded = struct.pack('B', length) + string_bytes
 
     @classmethod
     def decode(cls, binary_data):
@@ -98,8 +93,13 @@ class LongString(AmqpType):
         elif type(string_data) is AmqpType:
             string_bytes = string_data.encoded
         else:
+            if type(string_data) != str:
+                raise SfwException('Internal', 'String type requered for LongString type')
             string_bytes = string_data.encode('utf8')
-        self.encoded = struct.pack('!l', len(string_bytes)) + string_bytes
+        length = len(string_bytes)
+        if length > 4294967295:
+            raise SfwException('Internal', 'String is too long for LongString type')
+        self.encoded = struct.pack('!l', length) + string_bytes
 
     @classmethod
     def decode(cls, binary_data):
@@ -110,6 +110,10 @@ class LongString(AmqpType):
 class Char(AmqpType):
     def __init__(self, symbol):
         super().__init__(symbol)
+        if len(symbol) > 1:
+            raise SfwException('Internal', 'String is too long for Char type')
+        if type(symbol) != str:
+            raise SfwException('Internal', 'String type requered for Char type')
         self.encoded = struct.pack('c', symbol.encode('utf8'))
 
     @classmethod
@@ -120,6 +124,10 @@ class Char(AmqpType):
 class Octet(AmqpType):
     def __init__(self, integer_data):
         super().__init__(integer_data)
+        if type(integer_data) != int:
+            raise SfwException('Internal', 'Integer type requered for Octet type')
+        if integer_data > 255:
+            raise SfwException('Internal', 'Integer is too big for Octet type')
         self.encoded = struct.pack('B', integer_data)
 
     @classmethod
@@ -138,11 +146,17 @@ class Bit0(AmqpType):
         # TODO use <<
         integers_array.reverse()
         super().__init__(integers_array)
+        for i in integers_array:
+            if i > 255:
+                raise SfwException('Internal', 'Integer is too big for Bit type')
+            if type(i) != int:
+                raise SfwException('Internal', 'Integer type requered for Bit type')
         self.encoded = struct.pack('B', int(''.join([str(i) for i in integers_array]), base=2))
 
     @classmethod
     def decode(cls, binary_data):
         # TODO use <<
+        # TODO use bin() instead of bytes???
         qwe = list(str(bin(struct.unpack('B', bytes([binary_data[0]]))[0])).split('b')[1])
         qwe = [int(i) for i in qwe]
         integers_array = ([0, 0, 0, 0, 0] + qwe)[-1::-1][:cls.length]
@@ -187,6 +201,10 @@ class Bit8(Bit0):
 class ShortUint(AmqpType):
     def __init__(self, integer_data):
         super().__init__(integer_data)
+        if integer_data > 65535:
+            raise SfwException('Internal', 'Integer is too big for ShortUint type')
+        if type(integer_data) != int:
+            raise SfwException('Internal', 'Integer type requered for ShortUint type')
         self.encoded = struct.pack('!H', integer_data)
 
     @classmethod
@@ -198,29 +216,47 @@ class ExchangeName(ShortString):
     pass
 
 
-class HeaderPropertyFlag(ShortUint):
-    pass
+class HeaderProperty(AmqpType):
+    properties_table = ['content-type', 'content­encoding', 'headers', 'delivery­mode', 'priority', 'correlation­id', 'reply­to', 'expiration',
+                        'message­id', 'timestamp', 'timestamp', 'user­id', 'app­id', 'reserved']
 
-
-class HeaderPropertyValue(AmqpType):
-    # TODO may be different types see basic publish header property
-    # TODO realize it
-    def __init__(self, string_array):
-        super().__init__(string_array)
-        self.encoded = b''.join([ShortString(i).encoded for i in string_array])
+    def __init__(self, properties):
+        super().__init__(properties)
+        # property by order first property - highest bit 1000000000000000 - only first property
+        # properties = {'content-type': 'application/json'}
+        property_flag = 0
+        property_values = []
+        for k in properties:
+            # TODO use <<
+            property_flag += 2 ** (15 - self.properties_table.index(k))
+            property_values.append(properties[k])
+        result = AmqpType()
+        for prop in property_values:
+            result += ShortString(prop)
+        self.encoded = (ShortUint(property_flag) + result).encoded
 
     @classmethod
     def decode(cls, binary_data):
-        string_array = []
-        while binary_data:
-            string_element, binary_data = ShortString.decode(binary_data)
-            string_array.append(string_element.decoded_value)
-        return cls(string_array), binary_data
+        property_flag, binary_data = ShortUint.decode(binary_data)
+        # TODO use <<
+        qwe = str(bin(int(property_flag.decoded_value))).split('b')[1]
+        properties = {}
+        for index, value in enumerate(qwe):
+            if value == '0':
+                continue
+            else:
+                string_element, binary_data = ShortString.decode(binary_data)
+                properties[cls.properties_table[index]] = string_element.decoded_value
+        return cls(properties), binary_data
 
 
 class LongUint(AmqpType):
     def __init__(self, integer_data):
         super().__init__(integer_data)
+        if integer_data > 4294967295:
+            raise SfwException('Internal', 'Integer is too big for LongUint type')
+        if type(integer_data) != int:
+            raise SfwException('Internal', 'Integer type requered for LongUint type')
         self.encoded = struct.pack('!l', integer_data)
 
     @classmethod
@@ -235,6 +271,8 @@ class MessageCount(LongUint):
 class LongLongUint(AmqpType):
     def __init__(self, integer_data):
         super().__init__(integer_data)
+        if type(integer_data) != int:
+            raise SfwException('Internal', 'Integer type requered for LongLongUint type')
         self.encoded = struct.pack('!Q', integer_data)
 
     @classmethod
@@ -251,8 +289,11 @@ class FieldTable(AmqpType):
         super().__init__(dict_data)
         # for example dict_data = {'field_name1': ['S' : 'value1'], 'field_name2': ['t': value2]...}
         result = AmqpType()
-        for field_name in dict_data:
-            result += ShortString(field_name) + Char(dict_data[field_name][0]) + amqp_types_code_to_type[dict_data[field_name][0]](dict_data[field_name][1])
+        if dict_data is None:
+            pass
+        else:
+            for field_name in dict_data:
+                result += ShortString(field_name) + Char(dict_data[field_name][0]) + amqp_types_code_to_type[dict_data[field_name][0]](dict_data[field_name][1])
         self.encoded = (LongUint(len(result)) + result).encoded
 
     @classmethod
@@ -266,6 +307,19 @@ class FieldTable(AmqpType):
             v_value, table = amqp_types_code_to_type[v_type.decoded_value].decode(table)
             result[key.decoded_value] = [v_type.decoded_value, v_value.decoded_value]
         return cls(result), binary_data[length + 4:]
+
+
+class ReservedShortString(ShortString, Reserved):
+    pass
+
+
+class ReservedBit1(Bit1, Reserved):
+    pass
+
+
+class ReservedShortUint(ShortUint, Reserved):
+    pass
+
 
 amqp_types_code = {
     Bool: Char('t'),
