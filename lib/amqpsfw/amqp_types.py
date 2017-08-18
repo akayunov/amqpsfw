@@ -330,7 +330,7 @@ amqp_types_code = {
     Octet: Char('B'),
     FieldTable: Char('F'),
 }
-
+# TODO just reverse above
 amqp_types_code_to_type = {
     # short sting does not parsed - strage!!
     'S': LongString,

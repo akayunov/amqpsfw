@@ -237,6 +237,7 @@ class Channel:
 
 class Exchange:
     class Declare(Method):
+        # TODO avoid duplicate bits type
         type_structure = [ShortUint, ExchangeName, ShortString, Bit5, Bit5, Bit5, Bit5, Bit5, FieldTable]
         class_id = 40
         method_id = 10
