@@ -59,13 +59,6 @@ class Frame:
         return str(type(self)) + ' ' + ', '.join([str(k) + '=' + str(getattr(self, k)) for k in self.frame_params])
 
 
-class EmptyFrame(Frame):
-    frame_end = AmqpType()
-
-    def __init__(self):
-        self.encoded = b''
-
-
 class ProtocolHeader(Frame):
     frame_end = AmqpType()
     type_structure = [Char, Char, Char, Char, Octet, Octet, Octet, Octet]

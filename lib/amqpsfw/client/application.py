@@ -15,7 +15,7 @@ class Application:
 
     def __init__(self, ioloop):
         self.output_buffer_frames = deque()
-        self.output_buffer = None
+        self.output_buffer = [0, b'']
         self.buffer_in = b''
         self.host = Configuration.host
         self.port = Configuration.port
@@ -45,16 +45,14 @@ class Application:
         events = select.EPOLLIN | select.EPOLLERR | select.EPOLLPRI | select.EPOLLRDBAND | select.EPOLLHUP | select.EPOLLRDHUP
         self.ioloop.update_handler(self.fileno, events)
 
-    def modify_to_write(self, timeout_in_seconds=None):
+    def modify_to_write(self):
         events = select.EPOLLOUT | select.EPOLLERR | select.EPOLLHUP | select.EPOLLRDHUP
         self.ioloop.update_handler(self.fileno, events)
-        if timeout_in_seconds:
-            self.timeout_time_expired = time.time() + timeout_in_seconds
 
-    def write(self, value, timeout_in_seconds=None):
+    def write(self, value):
         log.debug('OUT:' + str(int(time.time())) + ' ' + str(value))
         self.output_buffer_frames.append(value)
-        self.modify_to_write(timeout_in_seconds=timeout_in_seconds)
+        self.modify_to_write()
 
     # TODO we need to devide diferent channales for diferent coroutines
     def handle_read(self, by_timeout=False):
@@ -81,10 +79,10 @@ class Application:
             self.modify_to_read()
             if self.output_buffer[0]:
                 self.processor.send(None)
-            self.output_buffer = None
+            self.output_buffer = [0, b'']
 
     def sleep(self, duration):
-        self.write(amqp_spec.EmptyFrame(), timeout_in_seconds=duration)
+        self.modify_to_write()
         self.ioloop.current().call_later(duration, next, self.processor)
         return
 
@@ -92,16 +90,16 @@ class Application:
         res = socket.getaddrinfo(self.host, self.port, socket.AF_INET, socket.SOCK_STREAM)
         af, socktype, proto, canonname, sa = res[0]
         self.socket = socket.socket(af, socktype, proto)
+        # TODO do connect non blocking
         self.socket.connect(sa)
         self.fileno = self.socket.fileno()
         protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', *Configuration.amqp_version)
         self.socket.send(protocol_header.encoded)
+        self.socket.setblocking(0)
         return self.socket
 
     def processor(self):
-        # TODO devide it more granular
         start = yield
-        channel_number = 1
         start_ok = amqp_spec.Connection.StartOk({'host': ['S', Configuration.host]}, Configuration.sals_mechanism, credential=[Configuration.credential.user, Configuration.credential.password])
         tune = yield self.write(start_ok)
 
@@ -112,17 +110,35 @@ class Application:
         c_open = amqp_spec.Connection.Open(virtual_host='/')
         openok = yield self.write(c_open)
 
-        ch_open = amqp_spec.Channel.Open(channel_number=channel_number)
-        ch_open_ok = yield self.write(ch_open)
+        #channel_obj = amqp_spec.Channel()
+        #ch_open = channel_obj.Open(channel_number=1)
+        ch_open1 = amqp_spec.Channel.Open(channel_number=1)
+        ch_open_ok = yield self.write(ch_open1)
 
-        flow = amqp_spec.Channel.Flow(channel_number=channel_number)
+        ch_open2 = amqp_spec.Channel.Open(channel_number=2)
+        ch_open_ok = yield self.write(ch_open2)
+
+        flow = amqp_spec.Channel.Flow(channel_number=ch_open1.channel_number)
         flow_ok = yield self.write(flow)
 
-        ex_declare = amqp_spec.Exchange.Declare('message', channel_number=channel_number)
+        ex_declare = amqp_spec.Exchange.Declare('message', channel_number=ch_open1.channel_number)
         declare_ok = yield self.write(ex_declare)
 
-        declare_q = amqp_spec.Queue.Declare(queue_name='text', channel_number=channel_number)
+        declare_q = amqp_spec.Queue.Declare(queue_name='text', channel_number=ch_open1.channel_number)
         declare_q_ok = yield self.write(declare_q)
 
-        bind = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=channel_number)
+        bind = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=ch_open1.channel_number)
+        bind_ok = yield self.write(bind)
+
+
+        flow = amqp_spec.Channel.Flow(channel_number=ch_open2.channel_number)
+        flow_ok = yield self.write(flow)
+
+        ex_declare = amqp_spec.Exchange.Declare('message', channel_number=ch_open2.channel_number)
+        declare_ok = yield self.write(ex_declare)
+
+        declare_q = amqp_spec.Queue.Declare(queue_name='text', channel_number=ch_open2.channel_number)
+        declare_q_ok = yield self.write(declare_q)
+
+        bind = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=ch_open2.channel_number)
         bind_ok = yield self.write(bind)
