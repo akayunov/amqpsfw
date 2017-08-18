@@ -1,8 +1,11 @@
+import logging
 import time
 import select
 from functools import partial
 IOLOOP = None
 # TODO integration with asyncio
+
+log = logging.getLogger(__name__)
 
 
 class IOLoopException(Exception):
@@ -74,16 +77,15 @@ class IOLoop:
     def start(self):
         while 1:
             next_timeout_callback = self.run_callbacks()
-            print('TIMEOUT: ', next_timeout_callback)
-            events = self.impl.poll(next_timeout_callback)  ## signals interupt this call??
-            print('POOL ', str(int(time.time())), next_timeout_callback, events)
+            events = self.impl.poll(next_timeout_callback)  # TODO signals interupt this call??
+            log.debug('POOL: %s %s %s', str(int(time.time())), next_timeout_callback, events)
             for fd, event in events:
                 # TODO add more event type checking
                 if event & (select.EPOLLIN | select.EPOLLPRI | select.EPOLLRDBAND):
-                    # print('IN: ', str(int(time.time())),events, timeout, self.timeout_time_expired)
+                    log.debug('IN: %s %s %s', str(int(time.time())), events, next_timeout_callback)
                     self.handler(self.fileno, event)
                 elif event & select.EPOLLOUT:
-                    # print('OUT: ' ,  str(int(time.time())), events, timeout, self.timeout_time_expired)
+                    log.debug('OUT: %s %s %s',  str(int(time.time())), events, next_timeout_callback)
                     self.handler(self.fileno, event)
                 elif event & select.EPOLLHUP:
                     pass

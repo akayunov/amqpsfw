@@ -1,10 +1,10 @@
-#!/home/akayunov/sfw/venv/bin/python3
+import os.path
 import sys
-sys.path = ['/home/akayunov/sfw/sfw/lib'] + sys.path
 
-import application
-import ioloop
-import amqp_spec
+sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
+
+from amqpsfw.client import application
+from amqpsfw import amqp_spec, ioloop
 
 
 class ConsumerAplication(application.Application):

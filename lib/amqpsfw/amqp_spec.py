@@ -1,10 +1,12 @@
-from collections import OrderedDict
 import sys
-from amqp_types import (AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, String,
+from collections import OrderedDict
+
+from amqpsfw import sasl_spec
+from amqpsfw.amqp_types import (AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, String,
                         LongLongUint, ExchangeName, QueueName, MessageCount, HeaderProperty, ConsumerTag, DeliveryTag,
-                        Bit5, Bit0, Bit1, Bit2, Bit3, Bit4, Bit6, Bit7, Bit8, Reserved, ReservedShortString, ReservedBit1, ReservedShortUint)
-import sasl_spec
-from exceptions import SfwException
+                        Bit5, Bit0, Bit1, Bit2, Bit4, Reserved, ReservedShortString, ReservedBit1, ReservedShortUint)
+
+from amqpsfw.exceptions import SfwException
 
 # TODO do all classes byte like object to remove encode from socket.send
 # TODO use memoryview, avoid too much copping
@@ -59,7 +61,6 @@ class Frame(EmptyFrame):
         self._encoded = value
 
     def set_params(self, params_dict):
-        # TODO run this function only in debug mode
         if not self.frame_params:
             type(self).frame_params = params_dict.keys()
         for k, v in params_dict.items():
@@ -88,28 +89,24 @@ class Method(Frame):
         super().__init__(*args, ** kwargs)
 
 
-class TTT:
-    class Header(Frame):
-        frame_type = 2
-        type_structure = [ShortUint, ShortUint, LongLongUint, HeaderProperty]  # ShortString - really many bit for header
-        dont_wait_response = 1
+class Header(Frame):
+    frame_type = 2
+    type_structure = [ShortUint, ShortUint, LongLongUint, HeaderProperty]  # ShortString - really many bit for header
+    dont_wait_response = 1
 
-        def __init__(self, class_id, weight=0, body_size=0, header_properties=None, channel_number=0):
-            super().__init__(class_id, weight, body_size, header_properties, channel_number=channel_number)
-            self.set_params(OrderedDict(channel_number=channel_number, class_id=class_id, weight=weight, body_size=body_size, properties=header_properties))
-
-    class Content(Frame):
-        frame_type = 3
-        type_structure = [String]
-        dont_wait_response = 1
-
-        def __init__(self, content='', channel_number=0):
-            super().__init__(content, channel_number=channel_number)
-            self.set_params(OrderedDict(channel_number=channel_number, content=content))
+    def __init__(self, class_id, weight=0, body_size=0, header_properties=None, channel_number=0):
+        super().__init__(class_id, weight, body_size, header_properties, channel_number=channel_number)
+        self.set_params(OrderedDict(channel_number=channel_number, class_id=class_id, weight=weight, body_size=body_size, properties=header_properties))
 
 
-Header = TTT.Header
-Content = TTT.Content
+class Content(Frame):
+    frame_type = 3
+    type_structure = [String]
+    dont_wait_response = 1
+
+    def __init__(self, content='', channel_number=0):
+        super().__init__(content, channel_number=channel_number)
+        self.set_params(OrderedDict(channel_number=channel_number, content=content))
 
 
 class Heartbeat(Frame):

@@ -1,10 +1,12 @@
-import unittest
-import pytest
 import sys
+import unittest
+
+import pytest
+
 sys.path = ['/home/akayunov/sfw/sfw/lib'] + sys.path
 
-import amqp_types
-from exceptions import SfwException
+from amqpsfw import amqp_types
+from amqpsfw.exceptions import SfwException
 
 class AmqpTypesTests(unittest.TestCase):
     def test_octet(self):

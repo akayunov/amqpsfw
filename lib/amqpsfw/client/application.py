@@ -1,12 +1,14 @@
-import socket
-import amqp_spec
-import time
+import logging
 import select
-
+import socket
+import time
 from collections import deque
-from exceptions import SfwException
+
+from amqpsfw import amqp_spec
+from amqpsfw.client.configuration import Configuration
 
 # TODO do blocking connection, my select connection, tornado connection
+log = logging.getLogger(__name__)
 
 
 class Application:
@@ -15,8 +17,8 @@ class Application:
         self.output_buffer_frames = deque()
         self.output_buffer = None
         self.buffer_in = b''
-        self.host = 'localhost'
-        self.port = '5672'
+        self.host = Configuration.host
+        self.port = Configuration.port
         self.ioloop = ioloop
         self.processor = self.processor()
         self.processor.send(None)
@@ -50,7 +52,7 @@ class Application:
             self.timeout_time_expired = time.time() + timeout_in_seconds
 
     def write(self, value, timeout_in_seconds=None):
-        print('OUT:' + str(int(time.time())) + ' ' + str(value))
+        log.debug('OUT:' + str(int(time.time())) + ' ' + str(value))
         self.output_buffer_frames.append(value)
         self.modify_to_write(timeout_in_seconds=timeout_in_seconds)
 
@@ -61,7 +63,7 @@ class Application:
         else:
             self.buffer_in += self.socket.recv(4096)
             for frame in iter(self.parse_buffer, None):
-                print('IN: ' + str(int(time.time())) + ' ' + str(frame))
+                log.debug('IN: ' + str(int(time.time())) + ' ' + str(frame))
                 if type(frame) is amqp_spec.Heartbeat:
                     self.write(amqp_spec.Heartbeat())
                 else:
@@ -92,7 +94,7 @@ class Application:
         self.socket = socket.socket(af, socktype, proto)
         self.socket.connect(sa)
         self.fileno = self.socket.fileno()
-        protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', 0, 0, 9, 1)
+        protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', *Configuration.amqp_version)
         self.socket.send(protocol_header.encoded)
         return self.socket
 
@@ -100,7 +102,7 @@ class Application:
         # TODO devide it more granular
         start = yield
         channel_number = 1
-        start_ok = amqp_spec.Connection.StartOk({'host': ['S', 'localhost']}, 'PLAIN', credential=['root', 'privetserver'])
+        start_ok = amqp_spec.Connection.StartOk({'host': ['S', Configuration.host]}, Configuration.sals_mechanism, credential=[Configuration.credential.user, Configuration.credential.password])
         tune = yield self.write(start_ok)
 
         tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=100)

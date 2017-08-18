@@ -1,4 +1,4 @@
-from amqp_types import AmqpType, Octet, String, LongString
+from amqpsfw.amqp_types import AmqpType, Octet, String, LongString
 
 
 class Plain(AmqpType):

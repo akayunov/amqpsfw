@@ -1,5 +1,7 @@
 import struct
-from exceptions import SfwException
+
+from amqpsfw.exceptions import SfwException
+
 
 # TODO use memory view on slicing
 # TODO it is just sfwtypes not AMQP because it used in sasl module
