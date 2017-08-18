@@ -1,40 +1,29 @@
-import sys
 from collections import OrderedDict
 
 from amqpsfw import sasl_spec
-from amqpsfw.amqp_types import (AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, String,
-                        LongLongUint, ExchangeName, QueueName, MessageCount, HeaderProperty, ConsumerTag, DeliveryTag,
-                        Bit5, Bit0, Bit1, Bit2, Bit4, Reserved, ReservedShortString, ReservedBit1, ReservedShortUint)
+from amqpsfw.amqp_types import (
+    AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, String,
+    LongLongUint, ExchangeName, QueueName, MessageCount, HeaderProperty, ConsumerTag, DeliveryTag,
+    Bit5, Bit0, Bit1, Bit2, Bit4, Reserved, ReservedShortString, ReservedBit1, ReservedShortUint
+)
 
 from amqpsfw.exceptions import SfwException
 
-# TODO do all classes byte like object to remove encode from socket.send
-# TODO use memoryview, avoid too much copping
-# TODO use slots
-
-THIS_MODULE = sys.modules[__name__]
+# TODO use slots vs don't save all data in objects, save it in binary data by using ioStruct, just encode decode it in time that needed
 
 
-class EmptyFrame:
-    dont_wait_response = 0
-    encoded = b''
-    frame_params = []
-
-    def __str__(self):
-        return str(type(self)) + ' ' + ', '.join([str(k) + '=' + str(getattr(self, k)) for k in self.frame_params])
-
-
-class Frame(EmptyFrame):
+class Frame:
     frame_end = Octet(206)
     frame_type = None
     type_structure = [Octet, ShortUint, LongUint]
+    frame_params = []
+    dont_wait_response = 0
 
     def __init__(self, *args, channel_number=0):
         self._encoded = b''
         self.payload = AmqpType()
-        self.channel_number = channel_number
         self.set_payload(args)
-        self.encoded = (Octet(self.frame_type) + ShortUint(self.channel_number) + LongUint(len(self.payload)) + self.payload).encoded
+        self.encoded = (Octet(self.frame_type) + ShortUint(channel_number) + LongUint(len(self.payload)) + self.payload).encoded
 
     def set_payload(self, args):
         bit_field = []
@@ -66,9 +55,19 @@ class Frame(EmptyFrame):
         for k, v in params_dict.items():
             setattr(self, k, v)
 
+    def __str__(self):
+        return str(type(self)) + ' ' + ', '.join([str(k) + '=' + str(getattr(self, k)) for k in self.frame_params])
+
+
+class EmptyFrame(Frame):
+    frame_end = AmqpType()
+
+    def __init__(self):
+        self.encoded = b''
+
 
 class ProtocolHeader(Frame):
-    frame_end = AmqpType('')
+    frame_end = AmqpType()
     type_structure = [Char, Char, Char, Char, Octet, Octet, Octet, Octet]
 
     def __init__(self, *args):
@@ -91,7 +90,7 @@ class Method(Frame):
 
 class Header(Frame):
     frame_type = 2
-    type_structure = [ShortUint, ShortUint, LongLongUint, HeaderProperty]  # ShortString - really many bit for header
+    type_structure = [ShortUint, ShortUint, LongLongUint, HeaderProperty]
     dont_wait_response = 1
 
     def __init__(self, class_id, weight=0, body_size=0, header_properties=None, channel_number=0):
@@ -398,6 +397,7 @@ FRAME_TYPES = {
 
 
 def decode_frame(frame_bytes):
+    # TODO use memoryview, avoid too much copping
     if len(frame_bytes) < 7:
         return None, frame_bytes
     if frame_bytes.startswith(b'AMQP') and len(frame_bytes) > 7:
