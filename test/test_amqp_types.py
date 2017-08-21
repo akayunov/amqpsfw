@@ -1,20 +1,32 @@
+import os
 import sys
 import unittest
 
 import pytest
 
-sys.path = ['/home/akayunov/sfw/sfw/lib'] + sys.path
+sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
 
 from amqpsfw import amqp_types
 from amqpsfw.exceptions import SfwException
 
-class AmqpTypesTests(unittest.TestCase):
+
+class TestAmqpTypes:
     def test_octet(self):
-        value = 1
+        value = 15
         octet = amqp_types.Octet(value)
-        self.assertEqual(octet.decoded_value, 1)
-        self.assertEqual(octet.encoded, bytes([1]))
-        self.assertEqual(amqp_types.Octet.decode(octet.encoded), (amqp_types.Octet(1), b''))
+        assert (octet, b'') == amqp_types.Octet.decode(octet.encoded)
+
+
+
+    def test_string(self):
+        value = 'qwe'
+        strint = amqp_types.String(value)
+        assert strint.decoded_value == value
+        assert strint.encoded == value.encode('utf8')
         with pytest.raises(SfwException):
-            value = '10000'
-            amqp_types.Octet(value)
+            value = 1
+            amqp_types.String(value)
+
+    # def test_needsfiles(self, tmpdir):
+    #     # print (tmpdir)
+    #     assert 0

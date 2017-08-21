@@ -2,7 +2,7 @@ from amqpsfw import sasl_spec
 from amqpsfw.amqp_types import (
     AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, String,
     LongLongUint, ExchangeName, QueueName, MessageCount, HeaderProperty, ConsumerTag, DeliveryTag,
-    Bit5, Bit0, Bit1, Bit2, Bit4, Reserved, ReservedShortString, ReservedBit1, ReservedShortUint
+    Bit5, Bit0, Bit1, Bit2, Bit4, Reserved, ReservedShortString, ReservedBit1, ReservedShortUint, ReservedLongString
 )
 
 from amqpsfw.exceptions import SfwException
@@ -15,28 +15,33 @@ class Frame:
     frame_params = []
     dont_wait_response = 0
 
-    def __init__(self, *args, channel_number=0, **kwargs):
+    def __init__(self, channel_number=0, **kwargs):
         self._encoded = b''
         self.payload = AmqpType()
-        self.set_payload(args + tuple(kwargs.values()))
+        self.set_payload(**kwargs)
         self.channel_number = channel_number
+        if type(channel_number) != int or not (65535 > channel_number >= 0):
+            raise SfwException('Internal', 'Wrong channel number, must be int in [0 .. 65535]')
         self.encoded = (Octet(self.frame_type) + ShortUint(channel_number) + LongUint(len(self.payload)) + self.payload).encoded
         if not self.frame_params:
-            type(self).frame_params = ['channel_number'] + list(filter(lambda x: not x.startswith('reserved'), kwargs.keys()))
+            type(self).frame_params = ['channel_number'] + list(filter(lambda x: not (x.startswith('reserved') or x in ['method_method_id', 'method_class_id']), kwargs.keys()))
 
-    def set_payload(self, args):
+    def set_payload(self, **kwargs):
         bit_field = []
         bit_type = None
-        for arg, arg_type in zip(args, self.type_structure):
+        for arg_name, arg_value, arg_type in zip(kwargs.keys(), kwargs.values(), self.type_structure):
             if issubclass(arg_type, Bit0):
                 bit_type = arg_type
-                bit_field.append(arg)
+                bit_field.append(arg_value)
                 continue
             if bit_field:
                 self.payload += bit_type(bit_field)
                 bit_field = []
                 bit_type = None
-            self.payload += arg_type(arg)
+            try:
+                self.payload += arg_type(arg_value)
+            except Exception:
+                raise SfwException('Internal', 'Wrong "' + arg_name + '" value for ' + str(type(self).__name__) + ' object/method')
         if bit_field:
             self.payload += bit_type(bit_field)
 
@@ -56,9 +61,9 @@ class ProtocolHeader(Frame):
     frame_end = AmqpType()
     type_structure = [Char, Char, Char, Char, Octet, Octet, Octet, Octet]
 
-    def __init__(self, *args):
+    def __init__(self, c1, c2, c3, c4, v1, v2, v3, v4):
         self.payload = AmqpType()
-        self.set_payload(args)
+        self.set_payload(c1=c1, c2=c2, c3=c3, c4=c4, v1=v1, v2=v2, v3=v3, v4=v4)
         self.encoded = self.payload.encoded
 
 
@@ -68,10 +73,11 @@ class Method(Frame):
     method_id = None
     type_structure = [ShortUint, ShortUint]
 
-    def __init__(self, *args, **kwargs):
-        args = [self.class_id, self.method_id] + list(args)
+    def __init__(self, **kwargs):
         self.type_structure = Method.type_structure + self.type_structure
-        super().__init__(*args, ** kwargs)
+        self.method_class_id = self.class_id
+        self.method_method_id = self.method_id
+        super().__init__(method_class_id=self.class_id, method_method_id=self.method_id, **kwargs)
 
 
 class Header(Frame):
@@ -180,9 +186,12 @@ class Connection:
             self.virtual_host = virtual_host
 
     class OpenOk(Method):
-        type_structure = [ShortString]
+        type_structure = [ReservedShortString]
         class_id = 10
         method_id = 41
+
+        def __init__(self, channel_number=0):
+            super().__init__(reserved='', channel_number=channel_number)
 
     class Close(Method):
         type_structure = [ShortUint, ShortString, ShortUint, ShortUint]
@@ -200,7 +209,7 @@ class Connection:
 
 class Channel:
     class Open(Method):
-        type_structure = [ShortString]
+        type_structure = [ReservedShortString]
         class_id = 20
         method_id = 10
 
@@ -209,9 +218,12 @@ class Channel:
             self.channel_number = channel_number
 
     class OpenOk(Method):
-        type_structure = [LongString]
+        type_structure = [ReservedLongString]
         class_id = 20
         method_id = 11
+
+        def __init__(self, channel_number=0):
+            super().__init__(reserved='', channel_number=channel_number)
 
     class Flow(Method):
         type_structure = [ReservedBit1]

@@ -4,4 +4,4 @@ class SfwException(Exception):
         self.msg = msg
 
     def __str__(self):
-        return str(type(self)) + ': ' + str(self.code) + ' - ' + self.msg
+        return str(self.code) + ' - ' + self.msg

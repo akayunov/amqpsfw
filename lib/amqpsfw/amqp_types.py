@@ -45,8 +45,6 @@ class AmqpType:
 class String(AmqpType):
     def __init__(self, string_data):
         super().__init__(string_data)
-        if type(string_data) != str:
-            raise SfwException('Internal', 'String type requered for String type')
         self.encoded = string_data.encode('utf8')
 
     @classmethod
@@ -63,10 +61,6 @@ class ShortString(AmqpType):
         super().__init__(string_data)
         string_bytes = string_data.encode('utf8')
         length = len(string_bytes)
-        if length > 255:
-            raise SfwException('Internal', 'String is too long for ShortString type')
-        if type(string_data) != str:
-            raise SfwException('Internal', 'String type requered for ShortString type')
         self.encoded = struct.pack('B', length) + string_bytes
 
     @classmethod
@@ -95,12 +89,8 @@ class LongString(AmqpType):
         elif type(string_data) is AmqpType:
             string_bytes = string_data.encoded
         else:
-            if type(string_data) != str:
-                raise SfwException('Internal', 'String type requered for LongString type')
             string_bytes = string_data.encode('utf8')
         length = len(string_bytes)
-        if length > 4294967295:
-            raise SfwException('Internal', 'String is too long for LongString type')
         self.encoded = struct.pack('!l', length) + string_bytes
 
     @classmethod
@@ -112,10 +102,6 @@ class LongString(AmqpType):
 class Char(AmqpType):
     def __init__(self, symbol):
         super().__init__(symbol)
-        if len(symbol) > 1:
-            raise SfwException('Internal', 'String is too long for Char type')
-        if type(symbol) != str:
-            raise SfwException('Internal', 'String type requered for Char type')
         self.encoded = struct.pack('c', symbol.encode('utf8'))
 
     @classmethod
@@ -126,10 +112,6 @@ class Char(AmqpType):
 class Octet(AmqpType):
     def __init__(self, integer_data):
         super().__init__(integer_data)
-        if type(integer_data) != int:
-            raise SfwException('Internal', 'Integer type requered for Octet type')
-        if integer_data > 255:
-            raise SfwException('Internal', 'Integer is too big for Octet type')
         self.encoded = struct.pack('B', integer_data)
 
     @classmethod
@@ -148,11 +130,6 @@ class Bit0(AmqpType):
         # TODO use <<
         integers_array.reverse()
         super().__init__(integers_array)
-        for i in integers_array:
-            if i > 255:
-                raise SfwException('Internal', 'Integer is too big for Bit type')
-            if type(i) != int:
-                raise SfwException('Internal', 'Integer type requered for Bit type')
         self.encoded = struct.pack('B', int(''.join([str(i) for i in integers_array]), base=2))
 
     @classmethod
@@ -203,10 +180,6 @@ class Bit8(Bit0):
 class ShortUint(AmqpType):
     def __init__(self, integer_data):
         super().__init__(integer_data)
-        if integer_data > 65535:
-            raise SfwException('Internal', 'Integer is too big for ShortUint type')
-        if type(integer_data) != int:
-            raise SfwException('Internal', 'Integer type requered for ShortUint type')
         self.encoded = struct.pack('!H', integer_data)
 
     @classmethod
@@ -255,10 +228,6 @@ class HeaderProperty(AmqpType):
 class LongUint(AmqpType):
     def __init__(self, integer_data):
         super().__init__(integer_data)
-        if integer_data > 4294967295:
-            raise SfwException('Internal', 'Integer is too big for LongUint type')
-        if type(integer_data) != int:
-            raise SfwException('Internal', 'Integer type requered for LongUint type')
         self.encoded = struct.pack('!l', integer_data)
 
     @classmethod
@@ -273,8 +242,6 @@ class MessageCount(LongUint):
 class LongLongUint(AmqpType):
     def __init__(self, integer_data):
         super().__init__(integer_data)
-        if type(integer_data) != int:
-            raise SfwException('Internal', 'Integer type requered for LongLongUint type')
         self.encoded = struct.pack('!Q', integer_data)
 
     @classmethod
@@ -312,6 +279,10 @@ class FieldTable(AmqpType):
 
 
 class ReservedShortString(ShortString, Reserved):
+    pass
+
+
+class ReservedLongString(LongString, Reserved):
     pass
 
 
