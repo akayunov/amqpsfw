@@ -3,14 +3,8 @@ import sys
 
 sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
 
-import logging
-
 from amqpsfw.client import application
 from amqpsfw import amqp_spec, ioloop
-
-log = logging.getLogger('amqpsfw.client.application')
-log.addHandler(logging.StreamHandler())
-log.setLevel(logging.DEBUG)
 
 
 class PublishAplication(application.Application):

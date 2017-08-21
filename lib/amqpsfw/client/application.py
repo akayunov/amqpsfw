@@ -7,12 +7,14 @@ from collections import deque
 from amqpsfw import amqp_spec
 from amqpsfw.client.configuration import Configuration
 
+from amqpsfw.amwpsfwlogging import init_logger
+
 # TODO do blocking connection, my select connection, tornado connection
 log = logging.getLogger(__name__)
+init_logger()
 
 
 class Application:
-
     def __init__(self, ioloop):
         self.output_buffer_frames = deque()
         self.output_buffer = [0, b'']
@@ -103,11 +105,11 @@ class Application:
         start_ok = amqp_spec.Connection.StartOk({'host': ['S', Configuration.host]}, Configuration.sals_mechanism, credential=[Configuration.credential.user, Configuration.credential.password])
         tune = yield self.write(start_ok)
 
-        tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=100)
+        tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=Configuration.heartbeat_interval)
         # yield self.write(tune_ok)  # it works too!!!! and frame must be send to server
         self.write(tune_ok)  # it works too!!!! and frame will be send to server on next yield
 
-        c_open = amqp_spec.Connection.Open(virtual_host='/')
+        c_open = amqp_spec.Connection.Open(virtual_host=Configuration.virtual_host)
         openok = yield self.write(c_open)
 
         #channel_obj = amqp_spec.Channel()
