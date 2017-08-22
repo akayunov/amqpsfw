@@ -8,10 +8,13 @@ from amqpsfw.exceptions import SfwException
 
 
 class AmqpType:
-
     def __init__(self, data=''):
         self.encoded = b''
         self.decoded_value = data
+
+    @classmethod
+    def decode(cls, binary_data):
+        raise NotImplementedError
 
     def __add__(self, other):
         result = AmqpType()
@@ -96,7 +99,7 @@ class LongString(AmqpType):
     @classmethod
     def decode(cls, binary_data):
         lenght = struct.unpack('!l', binary_data[0:4])[0]
-        return cls(binary_data[4:4+lenght].decode('utf8')), binary_data[lenght+4:]
+        return cls(binary_data[4:4 + lenght].decode('utf8')), binary_data[lenght + 4:]
 
 
 class Char(AmqpType):
@@ -123,8 +126,11 @@ class Bool(Octet):
     pass
 
 
-class Bit0(AmqpType):
-    length = 0
+# TODO fix it
+
+
+class Bit1(AmqpType):
+    length = 1
 
     def __init__(self, integers_array):
         # TODO use <<
@@ -139,41 +145,34 @@ class Bit0(AmqpType):
         qwe = list(str(bin(struct.unpack('B', bytes([binary_data[0]]))[0])).split('b')[1])
         qwe = [int(i) for i in qwe]
         integers_array = ([0, 0, 0, 0, 0] + qwe)[-1::-1][:cls.length]
-        integers_array.reverse()
         return cls(integers_array), binary_data[1:]
 
-# TODO fix it
 
-
-class Bit1(Bit0):
-    length = 1
-
-
-class Bit2(Bit0):
+class Bit2(Bit1):
     length = 2
 
 
-class Bit3(Bit0):
+class Bit3(Bit1):
     length = 3
 
 
-class Bit4(Bit0):
+class Bit4(Bit1):
     length = 4
 
 
-class Bit5(Bit0):
+class Bit5(Bit1):
     length = 5
 
 
-class Bit6(Bit0):
+class Bit6(Bit1):
     length = 6
 
 
-class Bit7(Bit0):
+class Bit7(Bit1):
     length = 7
 
 
-class Bit8(Bit0):
+class Bit8(Bit1):
     length = 8
 
 
@@ -189,40 +188,6 @@ class ShortUint(AmqpType):
 
 class ExchangeName(ShortString):
     pass
-
-
-class HeaderProperty(AmqpType):
-    properties_table = ['content-type', 'content­encoding', 'headers', 'delivery­mode', 'priority', 'correlation­id', 'reply­to', 'expiration',
-                        'message­id', 'timestamp', 'timestamp', 'user­id', 'app­id', 'reserved']
-
-    def __init__(self, properties):
-        super().__init__(properties)
-        # property by order first property - highest bit 1000000000000000 - only first property
-        # properties = {'content-type': 'application/json'}
-        property_flag = 0
-        property_values = []
-        for k in properties:
-            # TODO use <<
-            property_flag += 2 ** (15 - self.properties_table.index(k))
-            property_values.append(properties[k])
-        result = AmqpType()
-        for prop in property_values:
-            result += ShortString(prop)
-        self.encoded = (ShortUint(property_flag) + result).encoded
-
-    @classmethod
-    def decode(cls, binary_data):
-        property_flag, binary_data = ShortUint.decode(binary_data)
-        # TODO use <<
-        qwe = str(bin(int(property_flag.decoded_value))).split('b')[1]
-        properties = {}
-        for index, value in enumerate(qwe):
-            if value == '0':
-                continue
-            else:
-                string_element, binary_data = ShortString.decode(binary_data)
-                properties[cls.properties_table[index]] = string_element.decoded_value
-        return cls(properties), binary_data
 
 
 class LongUint(AmqpType):
@@ -292,6 +257,41 @@ class ReservedBit1(Bit1, Reserved):
 
 class ReservedShortUint(ShortUint, Reserved):
     pass
+
+
+class HeaderProperty(AmqpType):
+    properties_table = ['content-type', 'content­encoding', 'headers', 'delivery­mode', 'priority', 'correlation­id', 'reply­to', 'expiration',
+                        'message­id', 'timestamp', 'type', 'user­id', 'app­id', 'reserved']
+    properties_types = [ShortString, ShortString, FieldTable, Octet, Octet, ShortString, ShortString, ShortString, ShortString, LongLongUint, ShortString, ShortString, ShortString,
+                        ShortString]
+
+    def __init__(self, properties):
+        super().__init__(properties)
+        # property by order first property - highest bit 1000000000000000 - only first property
+        # properties = {'content-type': 'application/json'}
+        property_flag = 0
+        result = AmqpType()
+
+        for k in properties:
+            # TODO use <<
+            index = self.properties_table.index(k)
+            property_flag += 2 ** (15 - index)
+            result += self.properties_types[index](properties[k])
+        self.encoded = (ShortUint(property_flag) + result).encoded
+
+    @classmethod
+    def decode(cls, binary_data):
+        property_flag, binary_data = ShortUint.decode(binary_data)
+        # TODO use <<
+        qwe = str(bin(int(property_flag.decoded_value))).split('b')[1]
+        properties = {}
+        for index, value in enumerate(qwe):
+            if value == '0':
+                continue
+            else:
+                string_element, binary_data = cls.properties_types[index].decode(binary_data)
+                properties[cls.properties_table[index]] = string_element.decoded_value
+        return cls(properties), binary_data
 
 
 amqp_types_code = {

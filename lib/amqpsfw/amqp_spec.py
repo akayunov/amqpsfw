@@ -2,7 +2,7 @@ from amqpsfw import sasl_spec
 from amqpsfw.amqp_types import (
     AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, String,
     LongLongUint, ExchangeName, QueueName, MessageCount, HeaderProperty, ConsumerTag, DeliveryTag,
-    Bit5, Bit0, Bit1, Bit2, Bit4, Reserved, ReservedShortString, ReservedBit1, ReservedShortUint, ReservedLongString
+    Bit5, Bit1, Bit2, Bit4, Reserved, ReservedShortString, ReservedBit1, ReservedShortUint, ReservedLongString
 )
 
 from amqpsfw.exceptions import SfwException
@@ -30,7 +30,7 @@ class Frame:
         bit_field = []
         bit_type = None
         for arg_name, arg_value, arg_type in zip(kwargs.keys(), kwargs.values(), self.type_structure):
-            if issubclass(arg_type, Bit0):
+            if issubclass(arg_type, Bit1):
                 bit_type = arg_type
                 bit_field.append(arg_value)
                 continue
@@ -501,7 +501,7 @@ def decode_frame(frame_bytes):
         for i in FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value].type_structure:
             if issubclass(i, Reserved):
                 continue
-            if issubclass(i, Bit0):
+            if issubclass(i, Bit1):
                 bit_filed_flag = i
                 continue
             if bit_filed_flag:
