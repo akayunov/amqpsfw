@@ -4,7 +4,6 @@ from amqpsfw.exceptions import SfwException
 
 
 # TODO use memory view on slicing
-# TODO it is just sfwtypes not AMQP because it used in sasl module
 
 
 class AmqpType:
@@ -45,6 +44,16 @@ class AmqpType:
         return self.encoded == other.encoded
 
 
+class Char(AmqpType):
+    def __init__(self, symbol):
+        super().__init__(symbol)
+        self.encoded = struct.pack('c', symbol.encode('utf8'))
+
+    @classmethod
+    def decode(cls, binary_data):
+        return cls(struct.unpack('c', binary_data[0:1])[0].decode('utf8')), binary_data[1:]
+
+
 class String(AmqpType):
     def __init__(self, string_data):
         super().__init__(string_data)
@@ -53,10 +62,6 @@ class String(AmqpType):
     @classmethod
     def decode(cls, binary_data):
         return cls(binary_data.decode('utf8')), b''
-
-
-class Reserved(AmqpType):
-    pass
 
 
 class ShortString(AmqpType):
@@ -68,7 +73,7 @@ class ShortString(AmqpType):
 
     @classmethod
     def decode(cls, binary_data):
-        lenght = struct.unpack('B', bytes([binary_data[0]]))[0]
+        lenght = struct.unpack('B', binary_data[0:1])[0]
         return cls(binary_data[1:lenght + 1].decode('utf8')), binary_data[lenght + 1:]
 
 
@@ -84,65 +89,51 @@ class QueueName(ShortString):
     pass
 
 
+class ExchangeName(ShortString):
+    pass
+
+
 class LongString(AmqpType):
     def __init__(self, string_data):
         super().__init__(string_data)
         if type(string_data) in [bytes, bytearray]:
             string_bytes = string_data
-        elif type(string_data) is AmqpType:
+        elif issubclass(type(string_data), (AmqpType,)):
             string_bytes = string_data.encoded
         else:
             string_bytes = string_data.encode('utf8')
         length = len(string_bytes)
-        self.encoded = struct.pack('!l', length) + string_bytes
+        self.encoded = struct.pack('!L', length) + string_bytes
 
     @classmethod
     def decode(cls, binary_data):
-        lenght = struct.unpack('!l', binary_data[0:4])[0]
+        lenght = struct.unpack('!L', binary_data[0:4])[0]
         return cls(binary_data[4:4 + lenght].decode('utf8')), binary_data[lenght + 4:]
 
 
-class Char(AmqpType):
-    def __init__(self, symbol):
-        super().__init__(symbol)
-        self.encoded = struct.pack('c', symbol.encode('utf8'))
+class Bool(AmqpType):
+    def __init__(self, bool_data):
+        super().__init__(bool_data)
+        self.encoded = struct.pack('?', bool_data)
 
     @classmethod
     def decode(cls, binary_data):
-        return cls(struct.unpack('c', bytes([binary_data[0]]))[0].decode('utf8')), binary_data[1:]
-
-
-class Octet(AmqpType):
-    def __init__(self, integer_data):
-        super().__init__(integer_data)
-        self.encoded = struct.pack('B', integer_data)
-
-    @classmethod
-    def decode(cls, binary_data):
-        return cls(struct.unpack('B', bytes([binary_data[0]]))[0]), binary_data[1:]
-
-
-class Bool(Octet):
-    pass
-
-
-# TODO fix it
+        return cls(struct.unpack('?', binary_data[0:1])[0]), binary_data[1:]
 
 
 class Bit1(AmqpType):
     length = 1
 
     def __init__(self, integers_array):
-        # TODO use <<
-        integers_array.reverse()
         super().__init__(integers_array)
-        self.encoded = struct.pack('B', int(''.join([str(i) for i in integers_array]), base=2))
+        r = 0
+        for i, v in enumerate(integers_array):
+            r += v << i
+        self.encoded = struct.pack('B', r)
 
     @classmethod
     def decode(cls, binary_data):
-        # TODO use <<
-        # TODO use bin() instead of bytes???
-        qwe = list(str(bin(struct.unpack('B', bytes([binary_data[0]]))[0])).split('b')[1])
+        qwe = list(bin(struct.unpack('B', binary_data[0:1])[0]))[2:]
         qwe = [int(i) for i in qwe]
         integers_array = ([0, 0, 0, 0, 0] + qwe)[-1::-1][:cls.length]
         return cls(integers_array), binary_data[1:]
@@ -176,6 +167,36 @@ class Bit8(Bit1):
     length = 8
 
 
+class ShortShortInt(AmqpType):
+    def __init__(self, integer_data):
+        super().__init__(integer_data)
+        self.encoded = struct.pack('b', integer_data)
+
+    @classmethod
+    def decode(cls, binary_data):
+        return cls(struct.unpack('b', binary_data[0:1])[0]), binary_data[1:]
+
+
+class ShortShortUint(AmqpType):
+    def __init__(self, integer_data):
+        super().__init__(integer_data)
+        self.encoded = struct.pack('B', integer_data)
+
+    @classmethod
+    def decode(cls, binary_data):
+        return cls(struct.unpack('B', binary_data[0:1])[0]), binary_data[1:]
+
+
+class ShortInt(AmqpType):
+    def __init__(self, integer_data):
+        super().__init__(integer_data)
+        self.encoded = struct.pack('!h', integer_data)
+
+    @classmethod
+    def decode(cls, binary_data):
+        return cls(struct.unpack('!h', binary_data[:2])[0]), binary_data[2:]
+
+
 class ShortUint(AmqpType):
     def __init__(self, integer_data):
         super().__init__(integer_data)
@@ -186,11 +207,7 @@ class ShortUint(AmqpType):
         return cls(struct.unpack('!H', binary_data[:2])[0]), binary_data[2:]
 
 
-class ExchangeName(ShortString):
-    pass
-
-
-class LongUint(AmqpType):
+class LongInt(AmqpType):
     def __init__(self, integer_data):
         super().__init__(integer_data)
         self.encoded = struct.pack('!l', integer_data)
@@ -200,8 +217,28 @@ class LongUint(AmqpType):
         return cls(struct.unpack('!l', binary_data[:4])[0]), binary_data[4:]
 
 
+class LongUint(AmqpType):
+    def __init__(self, integer_data):
+        super().__init__(integer_data)
+        self.encoded = struct.pack('!L', integer_data)
+
+    @classmethod
+    def decode(cls, binary_data):
+        return cls(struct.unpack('!L', binary_data[:4])[0]), binary_data[4:]
+
+
 class MessageCount(LongUint):
     pass
+
+
+class LongLongInt(AmqpType):
+    def __init__(self, integer_data):
+        super().__init__(integer_data)
+        self.encoded = struct.pack('!q', integer_data)
+
+    @classmethod
+    def decode(cls, binary_data):
+        return cls(struct.unpack('!q', binary_data[:8])[0]), binary_data[8:]
 
 
 class LongLongUint(AmqpType):
@@ -218,16 +255,80 @@ class DeliveryTag(LongLongUint):
     pass
 
 
+class Float(AmqpType):
+    def __init__(self, float_data):
+        super().__init__(float_data)
+        self.encoded = struct.pack('!f', float_data)
+
+    @classmethod
+    def decode(cls, binary_data):
+        return cls(struct.unpack('!f', binary_data[:4])[0]), binary_data[4:]
+
+
+class Double(AmqpType):
+    def __init__(self, double_data):
+        super().__init__(double_data)
+        self.encoded = struct.pack('!d', double_data)
+
+    @classmethod
+    def decode(cls, binary_data):
+        return cls(struct.unpack('!d', binary_data[:8])[0]), binary_data[8:]
+
+
+class Decimal(AmqpType):
+    # TODO implement
+    def __init__(self, decimal_data):
+        super().__init__(decimal_data)
+        if '.' in decimal_data:
+            number_count_after_comma = str(decimal_data).split('.')[1]
+        else:
+            number_count_after_comma = 0
+        self.encoded = (ShortShortInt(number_count_after_comma) + LongUint(decimal_data)).encoded
+
+    @classmethod
+    def decode(cls, binary_data):
+        number_count_after_comma, binary_data = ShortShortInt.decode(binary_data)
+        value, binary_data = LongUint.decode(binary_data)
+        return cls(value.decoded_value), binary_data[5:]
+
+
+class TimeStamp(LongLongUint):
+    pass
+
+
+class FieldArray(AmqpType):
+    def __init__(self, array_data):
+        super().__init__(array_data)
+        result = AmqpType()
+        if not array_data:
+            pass
+        else:
+            for li in array_data:
+                result += Char(get_suitable_type(li)) + amqp_mapping[get_suitable_type(li)](li)
+        self.encoded = (LongInt(len(result)) + result).encoded
+
+    @classmethod
+    def decode(cls, binary_data):
+        length = struct.unpack('!l', binary_data[0:4])[0]
+        table = binary_data[4:length + 4]
+        result = []
+        while len(table):
+            key, table = ShortString.decode(table)
+            v_type, table = Char.decode(table)
+            v_value, table = amqp_mapping[v_type.decoded_value].decode(table)
+            result.append(v_value.decoded_value)
+        return cls(result), binary_data[length + 4:]
+
+
 class FieldTable(AmqpType):
     def __init__(self, dict_data):
         super().__init__(dict_data)
-        # for example dict_data = {'field_name1': ['S' : 'value1'], 'field_name2': ['t': value2]...}
         result = AmqpType()
-        if dict_data is None:
+        if not dict_data:
             pass
         else:
             for field_name in dict_data:
-                result += ShortString(field_name) + Char(dict_data[field_name][0]) + amqp_types_code_to_type[dict_data[field_name][0]](dict_data[field_name][1])
+                result += ShortString(field_name) + Char(get_suitable_type(dict_data[field_name])) + amqp_mapping[get_suitable_type(dict_data[field_name])](dict_data[field_name])
         self.encoded = (LongUint(len(result)) + result).encoded
 
     @classmethod
@@ -238,9 +339,59 @@ class FieldTable(AmqpType):
         while len(table):
             key, table = ShortString.decode(table)
             v_type, table = Char.decode(table)
-            v_value, table = amqp_types_code_to_type[v_type.decoded_value].decode(table)
-            result[key.decoded_value] = [v_type.decoded_value, v_value.decoded_value]
+            v_value, table = amqp_mapping[v_type.decoded_value].decode(table)
+            result[key.decoded_value] = v_value.decoded_value
         return cls(result), binary_data[length + 4:]
+
+
+def get_suitable_type(obj):
+    if type(obj) is str:
+        return 'S'
+    elif type(obj) is int:
+        if obj < 256:
+            return 'b'
+        elif obj < 65536:
+            return 'U'
+        elif obj < 4294967296:
+            return 'I'
+        else:
+            return 'L'
+    elif type(obj) is float:
+        return 'f'
+    elif type(obj) is bool:
+        return 't'
+    elif type(obj) is dict:
+        return 'F'
+    elif type(obj) is list:
+        return 'A'
+    else:
+        raise SfwException('Internal', 'Unknown type for filedtable type: ' + str(obj))
+
+
+amqp_mapping = {
+    't': Bool,
+    'b': ShortShortInt,
+    'U': ShortInt,
+    'u': ShortUint,
+    'I': LongInt,
+    'i': LongUint,
+    'L': LongLongInt,
+    'l': LongLongUint,
+    'f': Float,
+    'd': Double,
+    'D': Decimal,
+    's': ShortString,
+    'S': LongString,
+    'A': FieldArray,
+    'T': TimeStamp,
+    'F': FieldTable
+}
+
+
+class Reserved(AmqpType):
+    @classmethod
+    def decode(cls, binary_data):
+        raise NotImplementedError
 
 
 class ReservedShortString(ShortString, Reserved):
@@ -262,28 +413,25 @@ class ReservedShortUint(ShortUint, Reserved):
 class HeaderProperty(AmqpType):
     properties_table = ['content-type', 'content­encoding', 'headers', 'delivery­mode', 'priority', 'correlation­id', 'reply­to', 'expiration',
                         'message­id', 'timestamp', 'type', 'user­id', 'app­id', 'reserved']
-    properties_types = [ShortString, ShortString, FieldTable, Octet, Octet, ShortString, ShortString, ShortString, ShortString, LongLongUint, ShortString, ShortString, ShortString,
+    properties_types = [ShortString, ShortString, FieldTable, ShortShortInt, ShortShortInt, ShortString, ShortString, ShortString, ShortString, LongLongUint, ShortString,
+                        ShortString, ShortString,
                         ShortString]
 
     def __init__(self, properties):
         super().__init__(properties)
-        # property by order first property - highest bit 1000000000000000 - only first property
-        # properties = {'content-type': 'application/json'}
         property_flag = 0
         result = AmqpType()
 
-        for k in properties:
-            # TODO use <<
+        for i, k in enumerate(properties):
             index = self.properties_table.index(k)
-            property_flag += 2 ** (15 - index)
+            property_flag += 1 << index
             result += self.properties_types[index](properties[k])
         self.encoded = (ShortUint(property_flag) + result).encoded
 
     @classmethod
     def decode(cls, binary_data):
         property_flag, binary_data = ShortUint.decode(binary_data)
-        # TODO use <<
-        qwe = str(bin(int(property_flag.decoded_value))).split('b')[1]
+        qwe = list(bin(int(property_flag.decoded_value)))[2:]
         properties = {}
         for index, value in enumerate(qwe):
             if value == '0':
@@ -292,19 +440,3 @@ class HeaderProperty(AmqpType):
                 string_element, binary_data = cls.properties_types[index].decode(binary_data)
                 properties[cls.properties_table[index]] = string_element.decoded_value
         return cls(properties), binary_data
-
-
-amqp_types_code = {
-    Bool: Char('t'),
-    # short sting does not parsed - strage!!
-    LongString: Char('S'),
-    Octet: Char('B'),
-    FieldTable: Char('F'),
-}
-# TODO just reverse above
-amqp_types_code_to_type = {
-    # short sting does not parsed - strage!!
-    'S': LongString,
-    'F': FieldTable,
-    't': Octet
-}

@@ -1,17 +1,17 @@
 from amqpsfw import sasl_spec
 from amqpsfw.amqp_types import (
-    AmqpType, Octet, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, String,
+    AmqpType, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, String,
     LongLongUint, ExchangeName, QueueName, MessageCount, HeaderProperty, ConsumerTag, DeliveryTag,
-    Bit5, Bit1, Bit2, Bit4, Reserved, ReservedShortString, ReservedBit1, ReservedShortUint, ReservedLongString
+    Bit5, Bit1, Bit2, Bit4, Reserved, ReservedShortString, ReservedBit1, ReservedShortUint, ReservedLongString, ShortShortUint
 )
 
 from amqpsfw.exceptions import SfwException
 
 
 class Frame:
-    frame_end = Octet(206)
+    frame_end = ShortShortUint(206)
     frame_type = None
-    type_structure = [Octet, ShortUint, LongUint]
+    type_structure = [ShortShortUint, ShortUint, LongUint]
     frame_params = []
     dont_wait_response = 0
 
@@ -22,7 +22,7 @@ class Frame:
         self.channel_number = channel_number
         if type(channel_number) != int or not (65535 > channel_number >= 0):
             raise SfwException('Internal', 'Wrong channel number, must be int in [0 .. 65535]')
-        self.encoded = (Octet(self.frame_type) + ShortUint(channel_number) + LongUint(len(self.payload)) + self.payload).encoded
+        self.encoded = (ShortShortUint(self.frame_type) + ShortUint(channel_number) + LongUint(len(self.payload)) + self.payload).encoded
         if not self.frame_params:
             type(self).frame_params = ['channel_number'] + list(filter(lambda x: not (x.startswith('reserved') or x in ['method_method_id', 'method_class_id']), kwargs.keys()))
 
@@ -59,7 +59,7 @@ class Frame:
 
 class ProtocolHeader(Frame):
     frame_end = AmqpType()
-    type_structure = [Char, Char, Char, Char, Octet, Octet, Octet, Octet]
+    type_structure = [Char, Char, Char, Char, ShortShortUint, ShortShortUint, ShortShortUint, ShortShortUint]
 
     def __init__(self, c1, c2, c3, c4, v1, v2, v3, v4):
         self.payload = AmqpType()
@@ -110,7 +110,7 @@ class Heartbeat(Frame):
 
 class Connection:
     class Start(Method):
-        type_structure = [Octet, Octet, FieldTable, LongString, LongString]
+        type_structure = [ShortShortUint, ShortShortUint, FieldTable, LongString, LongString]
         class_id = 10
         method_id = 10
 
@@ -475,7 +475,7 @@ def decode_frame(frame_bytes):
             result.append(payload_part.decoded_value)
         return ProtocolHeader(*result), frame_bytes[8:]
 
-    (frame_type, _), (frame_channel, _), (frame_size, _) = Octet.decode(bytes([frame_bytes[0]])), ShortUint.decode(frame_bytes[1:3]), LongUint.decode(frame_bytes[3:7])
+    (frame_type, _), (frame_channel, _), (frame_size, _) = ShortShortUint.decode(bytes([frame_bytes[0]])), ShortUint.decode(frame_bytes[1:3]), LongUint.decode(frame_bytes[3:7])
     if frame_size.decoded_value > len(frame_bytes[7:]) - 1:
         # data is non efficient
         return None, frame_bytes
@@ -484,9 +484,9 @@ def decode_frame(frame_bytes):
         raise SfwException('Internal', 'Wrong frame end')
     if frame_size.decoded_value != len(frame_payload):
         raise SfwException('Internal', 'Wrong frame size')
-    if frame_type == Octet(8):
+    if frame_type == ShortShortUint(8):
         return FRAME_TYPES[frame_type.decoded_value](), frame_bytes[frame_size.decoded_value+7+1:]
-    elif frame_type in [Octet(2), Octet(3)]:
+    elif frame_type in [ShortShortUint(2), ShortShortUint(3)]:
         result = []
         for i in FRAME_TYPES[frame_type.decoded_value].type_structure:
             payload_part, frame_payload = i.decode(frame_payload)

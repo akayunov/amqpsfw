@@ -1,4 +1,4 @@
-from amqpsfw.amqp_types import AmqpType, Octet, String, LongString
+from amqpsfw.amqp_types import AmqpType, ShortShortUint, String, LongString
 
 
 class Plain(AmqpType):
@@ -12,7 +12,7 @@ class Plain(AmqpType):
 
     def set_payload(self, arguments):
         for arg, arg_type in zip(arguments, self.type_structure):
-            self.payload += Octet(0)
+            self.payload += ShortShortUint(0)
             self.payload += arg_type(arg)
         self.payload = LongString(AmqpType('PLAIN') + self.payload)
 

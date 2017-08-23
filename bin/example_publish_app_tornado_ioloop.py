@@ -18,7 +18,7 @@ class TornadoAplication(application.Application):
         start = yield
 
         channel_number = 1
-        start_ok = amqp_spec.Connection.StartOk({'host': ['S', 'localhost']}, 'PLAIN', credential=['root', 'privetserver'])
+        start_ok = amqp_spec.Connection.StartOk({'host': 'localhost'}, 'PLAIN', credential=['root', 'privetserver'])
         tune = yield self.write(start_ok)
 
         tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=1)

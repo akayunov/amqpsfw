@@ -102,7 +102,7 @@ class Application:
 
     def processor(self):
         start = yield
-        start_ok = amqp_spec.Connection.StartOk({'host': ['S', Configuration.host]}, Configuration.sals_mechanism, credential=[Configuration.credential.user, Configuration.credential.password])
+        start_ok = amqp_spec.Connection.StartOk({'host': Configuration.host}, Configuration.sals_mechanism, credential=[Configuration.credential.user, Configuration.credential.password])
         tune = yield self.write(start_ok)
 
         tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=Configuration.heartbeat_interval)
