@@ -2,28 +2,29 @@ from amqpsfw.amqp_types import AmqpType, ShortShortUint, String, LongString
 
 
 class Plain(AmqpType):
-    type_structure = [String, String]
+    def __init__(self, string_array):
+        super().__init__(string_array)
+        result = AmqpType('')
+        for string in string_array:
+            result += ShortShortUint(0)
+            result += String(string)
+        # import pdb;pdb.set_trace()
+        self.encoded = LongString(String('PLAIN') + result).encoded
 
-    def __init__(self, *args):
-        super().__init__()
-        self.payload = AmqpType()
-        self.set_payload(*args)
-        self.encoded = self.payload.encoded
-
-    def set_payload(self, arguments):
-        for arg, arg_type in zip(arguments, self.type_structure):
-            self.payload += ShortShortUint(0)
-            self.payload += arg_type(arg)
-        self.payload = LongString(AmqpType('PLAIN') + self.payload)
-
-    @property
-    def encoded(self):
-        return self._encoded
-
-    @encoded.setter
-    def encoded(self, value):
-        self._encoded = value
-
-    def __str__(self):
-        return str(type(self)) + ' ' + str(self.encoded)
+    @classmethod
+    def decode(cls, binary_data):
+        sasl_string, binary_data = LongString.decode(binary_data)
+        string_array = []
+        string = ''
+        # TODO add iterable protocol to do like: for current_byte in sasl_string
+        for current_byte in sasl_string.decoded_value:
+            if current_byte == '\x00':
+                if string:
+                    string_array.append(string)
+                    string = ''
+            else:
+                string += current_byte
+        string_array.append(string)
+        # string_array = [s.decode('utf8') for s in string_array]
+        return cls(string_array[1:]), binary_data
 

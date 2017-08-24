@@ -14,7 +14,7 @@ from amqpsfw.amqp_types import (AmqpType, String, Reserved, ShortString, Consume
 
 
 # TODO test complex type Header FiledArray FiledTAble
-# TODO add coverage
+# TODO add test for SASL type
 
 
 class TestAmqpTypes:
@@ -38,7 +38,7 @@ class TestAmqpTypes:
 
     # TODO test that decode return tail of bytes is rigth
     @pytest.mark.parametrize('types', [
-        (String, 'qwqwr'), (ShortString, 'asfaf'), (ConsumerTag, 'zvzdbv'), (Path, 'asdggas'), (QueueName, 'sdgsdg'), (ExchangeName, 'asagaga'), (LongString, 'a' * 300),
+        (String, 'qwqwr'), (String, b'qwqwr'), (ShortString, 'asfaf'), (ConsumerTag, 'zvzdbv'), (Path, 'asdggas'), (QueueName, 'sdgsdg'), (ExchangeName, 'asagaga'), (LongString, 'a' * 300),
         (LongString, bytes([1, 2, 3, 15])), (LongString, bytearray([1, 2, 3, 4])), (LongString, String('aqwrq')), (Char, 'c'),
         (Bool, True), (Bit1, [1]), (Bit2, [1, 1]), (Bit3, [1, 0, 1]), (Bit4, [1, 0, 1, 1]), (Bit5, [1, 1, 1, 0, 1]), (Bit6, [1, 0, 0, 0, 0, 1]), (Bit7, [1, 0, 0, 0, 0, 0, 1]),
         (Bit8, [1, 1, 1, 1, 1, 0, 0, 1]), (ShortUint, 124), (ShortShortUint, 12), (ShortInt, 12), (LongInt, 125), (ShortShortInt, 125),

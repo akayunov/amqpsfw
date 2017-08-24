@@ -56,6 +56,9 @@ class Frame:
     def __str__(self):
         return str(type(self)) + ' ' + ', '.join([str(k) + '=' + str(getattr(self, k)) for k in self.frame_params])
 
+    def __eq__(self, other):
+        return self.encoded == other.encoded
+
 
 class ProtocolHeader(Frame):
     frame_end = AmqpType('')
@@ -63,6 +66,14 @@ class ProtocolHeader(Frame):
 
     def __init__(self, c1, c2, c3, c4, v1, v2, v3, v4):
         self.payload = AmqpType('')
+        self.c1 = c1
+        self.c2 = c1
+        self.c3 = c1
+        self.c4 = c1
+        self.v1 = v1
+        self.v2 = v2
+        self.v3 = v3
+        self.v4 = v4
         self.set_payload(c1=c1, c2=c2, c3=c3, c4=c4, v1=v1, v2=v2, v3=v3, v4=v4)
         self.encoded = self.payload.encoded
 
@@ -420,7 +431,6 @@ class Basic:
             self.delivery_tag = delivery_tag
             self.multiple = multiple
 
-# TODO construct it dynamic in runtime
 FRAME_TYPES = {
     1:     {
         10: {

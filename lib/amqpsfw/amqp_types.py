@@ -57,7 +57,13 @@ class Char(AmqpType):
 class String(AmqpType):
     def __init__(self, string_data):
         super().__init__(string_data)
-        self.encoded = string_data.encode('utf8')
+        if type(string_data) in [bytes, bytearray]:
+            string_bytes = string_data
+        elif issubclass(type(string_data), (AmqpType,)):
+            string_bytes = string_data.encoded
+        else:
+            string_bytes = string_data.encode('utf8')
+        self.encoded = string_bytes
 
     @classmethod
     def decode(cls, binary_data):
