@@ -200,6 +200,10 @@ class Connection:
 
         def __init__(self, reply_code=0, reply_text='', class_id=10, method_id=50, channel_number=0):
             super().__init__(reply_code=reply_code, reply_text=reply_text, class_id=class_id, method_id=method_id, channel_number=channel_number)
+            self.reply_code = reply_code
+            self.reply_text = reply_text
+            self.class_id = class_id
+            self.method_id = method_id
 
     class CloseOk(Method):
         type_structure = []

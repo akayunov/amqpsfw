@@ -38,7 +38,7 @@ class TestAmqpTypes:
                                                     'asfagf', 'dg', 'vncnv', 'afa']))
          ), (LongUint, 12415454), (MessageCount, 12), (LongLongUint, 12414), (LongLongInt, 124), (DeliveryTag, 124124), (Float, 123.142), (Double, 121.4124),
         # TODO (Decimal, decimal.Decimal(12414.12414)),
-        (TimeStamp, 1241), (FieldArray, []),
+        (TimeStamp, 1241), (FieldArray, ['qwe', True, 123, {'asd': 1.23}]),
         (FieldTable, {'host': 'localhost', 'qw': 2.1, 'asf': {'xc': ['qwe', 'asd', 214, []]}}), (ReservedShortString, 'asfasf'),
         (ReservedLongString, 'asfsags'), (ReservedBit1, [1]), (ReservedShortUint, 1241)
     ])

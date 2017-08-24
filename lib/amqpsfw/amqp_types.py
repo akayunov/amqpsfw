@@ -313,7 +313,6 @@ class FieldArray(AmqpType):
         table = binary_data[4:length + 4]
         result = []
         while len(table):
-            key, table = ShortString.decode(table)
             v_type, table = Char.decode(table)
             v_value, table = amqp_mapping[v_type.decoded_value].decode(table)
             result.append(v_value.decoded_value)
@@ -328,7 +327,8 @@ class FieldTable(AmqpType):
             pass
         else:
             for field_name in dict_data:
-                result += ShortString(field_name) + Char(get_suitable_type(dict_data[field_name])) + amqp_mapping[get_suitable_type(dict_data[field_name])](dict_data[field_name])
+                t = ShortString(field_name) + Char(get_suitable_type(dict_data[field_name])) + amqp_mapping[get_suitable_type(dict_data[field_name])](dict_data[field_name])
+                result += t
         self.encoded = (LongUint(len(result)) + result).encoded
 
     @classmethod
@@ -346,14 +346,24 @@ class FieldTable(AmqpType):
 
 def get_suitable_type(obj):
     if type(obj) is str:
-        return 'S'
+        if len(obj) < 256:
+            # TODO short string doesn't parsed by rabbitmq
+            return 'S'
+        else:
+            return 'S'
     elif type(obj) is int:
-        if obj < 256:
+        if obj < 128:
             return 'b'
-        elif obj < 65536:
+        elif obj < 256:
+            return 'B'
+        elif obj < 32768:
             return 'U'
-        elif obj < 4294967296:
+        elif obj < 65536:
+            return 'u'
+        elif obj < 2147483648:
             return 'I'
+        elif obj < 4294967296:
+            return 'i'
         else:
             return 'L'
     elif type(obj) is float:
@@ -371,6 +381,7 @@ def get_suitable_type(obj):
 amqp_mapping = {
     't': Bool,
     'b': ShortShortInt,
+    'B': ShortShortUint,
     'U': ShortInt,
     'u': ShortUint,
     'I': LongInt,
