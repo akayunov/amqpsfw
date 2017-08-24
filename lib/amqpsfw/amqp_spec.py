@@ -17,7 +17,7 @@ class Frame:
 
     def __init__(self, channel_number=0, **kwargs):
         self._encoded = b''
-        self.payload = AmqpType()
+        self.payload = AmqpType('')
         self.set_payload(**kwargs)
         self.channel_number = channel_number
         if type(channel_number) != int or not (65535 > channel_number >= 0):
@@ -58,11 +58,11 @@ class Frame:
 
 
 class ProtocolHeader(Frame):
-    frame_end = AmqpType()
+    frame_end = AmqpType('')
     type_structure = [Char, Char, Char, Char, ShortShortUint, ShortShortUint, ShortShortUint, ShortShortUint]
 
     def __init__(self, c1, c2, c3, c4, v1, v2, v3, v4):
-        self.payload = AmqpType()
+        self.payload = AmqpType('')
         self.set_payload(c1=c1, c2=c2, c3=c3, c4=c4, v1=v1, v2=v2, v3=v3, v4=v4)
         self.encoded = self.payload.encoded
 

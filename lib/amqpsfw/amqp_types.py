@@ -7,7 +7,7 @@ from amqpsfw.exceptions import SfwException
 
 
 class AmqpType:
-    def __init__(self, data=''):
+    def __init__(self, data):
         self.encoded = b''
         self.decoded_value = data
 
@@ -16,7 +16,7 @@ class AmqpType:
         raise NotImplementedError
 
     def __add__(self, other):
-        result = AmqpType()
+        result = AmqpType('')
         if hasattr(other, 'encoded'):
             result.encoded = self.encoded + other.encoded
         else:
@@ -24,7 +24,7 @@ class AmqpType:
         return result
 
     def __iadd__(self, other):
-        result = AmqpType()
+        result = AmqpType('')
         if hasattr(other, 'encoded'):
             result.encoded = self.encoded + other.encoded
         else:
@@ -133,9 +133,7 @@ class Bit1(AmqpType):
 
     @classmethod
     def decode(cls, binary_data):
-        qwe = list(bin(struct.unpack('B', binary_data[0:1])[0]))[2:]
-        qwe = [int(i) for i in qwe]
-        integers_array = ([0, 0, 0, 0, 0] + qwe)[-1::-1][:cls.length]
+        integers_array = reversed(list(map(int, list(bin(struct.unpack('B', binary_data[0:1])[0])[2:].zfill(8)))))
         return cls(integers_array), binary_data[1:]
 
 
@@ -299,7 +297,9 @@ class TimeStamp(LongLongUint):
 class FieldArray(AmqpType):
     def __init__(self, array_data):
         super().__init__(array_data)
-        result = AmqpType()
+        result = AmqpType('')
+        if type(array_data) is not list:
+            raise SfwException('Internal', 'Input type for FieldArray object is wrong')
         if not array_data:
             pass
         else:
@@ -322,7 +322,9 @@ class FieldArray(AmqpType):
 class FieldTable(AmqpType):
     def __init__(self, dict_data):
         super().__init__(dict_data)
-        result = AmqpType()
+        result = AmqpType('')
+        if type(dict_data) is not dict:
+            raise SfwException('Internal', 'Input type for FieldTable object is wrong')
         if not dict_data:
             pass
         else:
@@ -431,7 +433,7 @@ class HeaderProperty(AmqpType):
     def __init__(self, properties):
         super().__init__(properties)
         property_flag = 0
-        result = AmqpType()
+        result = AmqpType('')
 
         for i, k in enumerate(properties):
             index = self.properties_table.index(k)
@@ -442,10 +444,10 @@ class HeaderProperty(AmqpType):
     @classmethod
     def decode(cls, binary_data):
         property_flag, binary_data = ShortUint.decode(binary_data)
-        qwe = list(bin(int(property_flag.decoded_value)))[2:]
+        integers_array = reversed(list(map(int, list(bin(property_flag.decoded_value)[2:].zfill(16)))))
         properties = {}
-        for index, value in enumerate(qwe):
-            if value == '0':
+        for index, value in enumerate(integers_array):
+            if value == 0:
                 continue
             else:
                 string_element, binary_data = cls.properties_types[index].decode(binary_data)
