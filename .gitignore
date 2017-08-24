@@ -2,4 +2,3 @@
 *.pyc
 .cache
 .coverage
-tmp
