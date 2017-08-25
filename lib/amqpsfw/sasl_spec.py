@@ -9,7 +9,7 @@ class Plain(AmqpType):
             result += ShortShortUint(0)
             result += String(string)
         # import pdb;pdb.set_trace()
-        self.encoded = LongString(String('PLAIN') + result).encoded
+        self.encoded = LongString(result).encoded
 
     @classmethod
     def decode(cls, binary_data):
@@ -26,5 +26,5 @@ class Plain(AmqpType):
                 string += current_byte
         string_array.append(string)
         # string_array = [s.decode('utf8') for s in string_array]
-        return cls(string_array[1:]), binary_data
+        return cls(string_array), binary_data
 

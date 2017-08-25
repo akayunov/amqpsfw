@@ -329,11 +329,11 @@ class FieldTable(AmqpType):
     def __init__(self, dict_data):
         super().__init__(dict_data)
         result = AmqpType('')
-        if type(dict_data) is not dict:
-            raise SfwException('Internal', 'Input type for FieldTable object is wrong')
         if not dict_data:
             pass
         else:
+            if type(dict_data) is not dict:
+                raise SfwException('Internal', 'Input type for FieldTable object is wrong')
             for field_name in dict_data:
                 t = ShortString(field_name) + Char(get_suitable_type(dict_data[field_name])) + amqp_mapping[get_suitable_type(dict_data[field_name])](dict_data[field_name])
                 result += t
@@ -429,33 +429,67 @@ class ReservedShortUint(ShortUint, Reserved):
     pass
 
 
+# TODO fix it
+# class HeaderProperty(AmqpType):
+#     properties_table = ['content-type', 'content­encoding', 'headers', 'delivery­mode', 'priority', 'correlation­id', 'reply­to', 'expiration',
+#                         'message­id', 'timestamp', 'type', 'user­id', 'app­id', 'reserved']
+#     properties_types = [ShortString, ShortString, FieldTable, ShortShortInt, ShortShortInt, ShortString, ShortString, ShortString, ShortString, LongLongUint, ShortString,
+#                         ShortString, ShortString,
+#                         ShortString]
+#
+#     def __init__(self, properties):
+#         super().__init__(properties)
+#         property_flag = 0
+#         result = AmqpType('')
+#
+#         for i, k in enumerate(properties):
+#             index = list(reversed(self.properties_table)).index(k)
+#             property_flag += 1 << index
+#             result += list(reversed(self.properties_types))[index](properties[k])
+#         self.encoded = (ShortUint(property_flag) + result).encoded
+#
+#     @classmethod
+#     def decode(cls, binary_data):
+#         property_flag, binary_data = ShortUint.decode(binary_data)
+#         integers_array = reversed(list(map(int, list(bin(property_flag.decoded_value)[2:].zfill(16)))))
+#         properties = {}
+#         for index, value in enumerate(integers_array):
+#             if value == 0:
+#                 continue
+#             else:
+#                 string_element, binary_data = cls.properties_types[index].decode(binary_data)
+#                 properties[cls.properties_table[index]] = string_element.decoded_value
+#         return cls(properties), binary_data
 class HeaderProperty(AmqpType):
     properties_table = ['content-type', 'content­encoding', 'headers', 'delivery­mode', 'priority', 'correlation­id', 'reply­to', 'expiration',
-                        'message­id', 'timestamp', 'type', 'user­id', 'app­id', 'reserved']
-    properties_types = [ShortString, ShortString, FieldTable, ShortShortInt, ShortShortInt, ShortString, ShortString, ShortString, ShortString, LongLongUint, ShortString,
-                        ShortString, ShortString,
-                        ShortString]
+                        'message­id', 'timestamp', 'timestamp', 'user­id', 'app­id', 'reserved']
 
     def __init__(self, properties):
         super().__init__(properties)
+        # property by order first property - highest bit 1000000000000000 - only first property
+        # properties = {'content-type': 'application/json'}
         property_flag = 0
+        property_values = []
+        for k in properties:
+            # TODO use <<
+            property_flag += 2 ** (15 - self.properties_table.index(k))
+            property_values.append(properties[k])
         result = AmqpType('')
-
-        for i, k in enumerate(properties):
-            index = self.properties_table.index(k)
-            property_flag += 1 << index
-            result += self.properties_types[index](properties[k])
+        for prop in property_values:
+            result += ShortString(prop)
         self.encoded = (ShortUint(property_flag) + result).encoded
 
     @classmethod
     def decode(cls, binary_data):
         property_flag, binary_data = ShortUint.decode(binary_data)
-        integers_array = reversed(list(map(int, list(bin(property_flag.decoded_value)[2:].zfill(16)))))
+        # TODO use <<
+        qwe = str(bin(int(property_flag.decoded_value))).split('b')[1]
         properties = {}
-        for index, value in enumerate(integers_array):
-            if value == 0:
+        for index, value in enumerate(qwe):
+            if value == '0':
                 continue
             else:
-                string_element, binary_data = cls.properties_types[index].decode(binary_data)
+                string_element, binary_data = ShortString.decode(binary_data)
                 properties[cls.properties_table[index]] = string_element.decoded_value
         return cls(properties), binary_data
+

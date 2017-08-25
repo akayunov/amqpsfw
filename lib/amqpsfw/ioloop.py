@@ -84,16 +84,16 @@ class IOLoop:
                 if event & (select.EPOLLIN | select.EPOLLPRI | select.EPOLLRDBAND):
                     log.debug('IN: %s %s %s', str(int(time.time())), events, next_timeout_callback)
                     self.handler(self.fileno, event)
-                elif event & select.EPOLLOUT:
+                if event & select.EPOLLOUT:
                     log.debug('OUT: %s %s %s',  str(int(time.time())), events, next_timeout_callback)
                     self.handler(self.fileno, event)
-                elif event & select.EPOLLHUP:
+                if event & select.EPOLLHUP:
                     pass
-                elif event & select.EPOLLERR:
+                if event & select.EPOLLERR:
                     pass
-                elif event & select.EPOLLRDHUP:
+                if event & select.EPOLLRDHUP:
                     pass
-                else:
-                    raise IOLoopException('IOLOOP', 'Unknown error socket state')
+                # else:
+                #     raise IOLoopException('IOLOOP', 'Unknown error socket state')
             if not events:
                 self.run_callbacks()

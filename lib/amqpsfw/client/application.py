@@ -48,7 +48,8 @@ class Application:
         self.ioloop.update_handler(self.fileno, events)
 
     def modify_to_write(self):
-        events = select.EPOLLOUT | select.EPOLLERR | select.EPOLLHUP | select.EPOLLRDHUP
+        # TODO EPOLLIN - tests it
+        events = select.EPOLLOUT | select.EPOLLIN | select.EPOLLERR | select.EPOLLHUP | select.EPOLLRDHUP
         self.ioloop.update_handler(self.fileno, events)
 
     def write(self, value):

@@ -57,7 +57,13 @@ class Frame:
         return str(type(self)) + ' ' + ', '.join([str(k) + '=' + str(getattr(self, k)) for k in self.frame_params])
 
     def __eq__(self, other):
-        return self.encoded == other.encoded
+        if hasattr(other, 'encoded'):
+            return self.encoded == other.encoded
+        else:
+            return False
+
+    def __len__(self):
+        return len(self.payload) + 1 + 2 + 4 + 1
 
 
 class ProtocolHeader(Frame):
@@ -430,6 +436,38 @@ class Basic:
             super().__init__(delivery_tag=delivery_tag, multiple=multiple, channel_number=channel_number)
             self.delivery_tag = delivery_tag
             self.multiple = multiple
+
+
+class Tx:
+    class Select(Method):
+        type_structure = []
+        class_id = 90
+        method_id = 10
+
+    class SelectOK(Method):
+        type_structure = []
+        class_id = 90
+        method_id = 11
+
+    class Commit(Method):
+        type_structure = []
+        class_id = 90
+        method_id = 20
+
+    class CommitOK(Method):
+        type_structure = []
+        class_id = 90
+        method_id = 21
+
+    class Rollback(Method):
+        type_structure = []
+        class_id = 90
+        method_id = 30
+
+    class RollbackOK(Method):
+        type_structure = []
+        class_id = 90
+        method_id = 31
 
 FRAME_TYPES = {
     1:     {

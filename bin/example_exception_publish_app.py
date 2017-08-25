@@ -13,20 +13,27 @@ class PublishAplication(application.Application):
         yield from super().processor()
         for t in range(100):
             content = "qwe" +  str(t)
-            # import pdb;
-            # pdb.set_trace()
             response = yield self.sleep(1)
-            if response:
-                import pdb;pdb.set_trace()
+            if type(response) is amqp_spec.Connection.Close:
+                print('Break')
+                exit(0)
             response = yield self.write(amqp_spec.Basic.Publish(exchange_name='message', routing_key='text.tratata', channel_number=channel_number))
-            if response:
-                import pdb;pdb.set_trace()
+            if type(response) is amqp_spec.Connection.Close:
+                print('Break')
+                exit(0)
             response = yield self.write(amqp_spec.Header(class_id=amqp_spec.Basic.Publish.class_id, body_size=len(content), header_properties={'content-type': 'application/json'}, channel_number=channel_number))
-            if response:
-                import pdb;pdb.set_trace()
-            response = yield self.write(amqp_spec.Content(content=content, channel_number=channel_number))
-            if response:
-                import pdb;pdb.set_trace()
+            if type(response) is amqp_spec.Connection.Close:
+                print('Break')
+                exit(0)
+            if t == 3:
+                con = amqp_spec.Content(content=content, channel_number=channel_number)
+                con.encoded = bytes([1,2,3])
+                response = yield self.write(con)
+            else:
+                response = yield self.write(amqp_spec.Content(content=content, channel_number=channel_number))
+            if type(response) is amqp_spec.Connection.Close:
+                print('Break')
+                exit(0)
 
         response = yield self.write(amqp_spec.Channel.Close(channel_number=channel_number))
         response = yield self.write(amqp_spec.Connection.Close())
