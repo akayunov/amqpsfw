@@ -5,7 +5,7 @@ before_install: true
 install: true
 #  - pip install -e . --use-mirrors
 before_script:
-  - pip install -r install/requirements.txt --use-mirrors
+  - pip install -r install/requirements.txt
   - git clone https://github.com/akayunov/amqpsfw.git
   - cd amqpsfw/sfw
 #  - git checkout -qf 17b8119796516195527dcb4f454a2ebd41d60244
