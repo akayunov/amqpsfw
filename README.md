@@ -1,5 +1,5 @@
 # amqpsfw
-another implementation of amqp client
+Another implementation of amqp client
 
 [![Build Status](https://travis-ci.org/akayunov/amqpsfw.svg?branch=master)](https://travis-ci.org/akayunov/amqpsfw)
 

@@ -25,7 +25,7 @@ class PublishAplication(application.Application):
             if type(response) is amqp_spec.Connection.Close:
                 print('Break')
                 exit(0)
-            if t == 3:
+            if t == 2:
                 con = amqp_spec.Content(content=content, channel_number=channel_number)
                 con.encoded = bytes([1,2,3])
                 response = yield self.write(con)

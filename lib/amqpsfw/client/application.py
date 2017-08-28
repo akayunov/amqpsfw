@@ -65,10 +65,13 @@ class Application:
             self.buffer_in += self.socket.recv(4096)
             for frame in iter(self.parse_buffer, None):
                 log.debug('IN: ' + str(int(time.time())) + ' ' + str(frame))
-                if type(frame) is amqp_spec.Heartbeat:
-                    self.write(amqp_spec.Heartbeat())
-                else:
-                    self.processor.send(frame)
+                response = self.method_handler(frame)
+                # if type(frame) is amqp_spec.Heartbeat:
+                #     self.write(amqp_spec.Heartbeat())
+                # else:
+                #     self.processor.send(frame)
+                if response:
+                    self.processor.send(response)
 
     def handle_write(self):
         # TODO use more optimize structure for slice to avoid copping
@@ -145,3 +148,37 @@ class Application:
 
         bind = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=ch_open2.channel_number)
         bind_ok = yield self.write(bind)
+
+    def stop(self):
+        # TODO flush buffers before ioloop stop
+        self.ioloop.stop()
+        self.socket.close()
+
+    def on_close(self, method):
+        log.debug('Connection close:' + str(method))
+        self.write(amqp_spec.Connection.CloseOk())
+        self.stop()
+        return method
+
+    def on_hearbeat(self, method):
+        self.write(amqp_spec.Heartbeat())
+
+    def on_start(self, method):
+        start_ok = amqp_spec.Connection.StartOk({'host': Configuration.host}, Configuration.sals_mechanism,
+                                                credential=[Configuration.credential.user, Configuration.credential.password])
+        self.write(start_ok)
+
+    method_mapper = {}
+
+    def method_handler(self, method):
+        if not self.method_mapper:
+            method_mapper = {
+                amqp_spec.Connection.Close: self.on_close,
+                amqp_spec.Heartbeat: self.on_hearbeat,
+                # amqp_spec.Connection.Start: self.on_start
+            }
+            setattr(type(self), 'method_mapper', method_mapper)
+        if type(method) in self.method_mapper:
+            return self.method_mapper[type(method)](method)
+        else:
+            return method

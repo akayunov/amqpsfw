@@ -15,9 +15,9 @@ class PublishAplication(application.Application):
             content = "qwe" +  str(t)
             # import pdb;
             # pdb.set_trace()
-            response = yield self.sleep(1)
-            if response:
-                import pdb;pdb.set_trace()
+            # response = yield self.sleep(1)
+            # if response:
+            #     import pdb;pdb.set_trace()
             response = yield self.write(amqp_spec.Basic.Publish(exchange_name='message', routing_key='text.tratata', channel_number=channel_number))
             if response:
                 import pdb;pdb.set_trace()

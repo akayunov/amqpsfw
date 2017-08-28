@@ -97,3 +97,7 @@ class IOLoop:
                 #     raise IOLoopException('IOLOOP', 'Unknown error socket state')
             if not events:
                 self.run_callbacks()
+
+    def stop(self):
+        # TODO flush buffers
+        pass
