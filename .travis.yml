@@ -2,7 +2,6 @@ language: python
 python:
   - "3.6"
 before_install: true
-    #- apt-get install rabbitmq-server
 install: true
 #  - pip install -e . --use-mirrors
 before_script:
