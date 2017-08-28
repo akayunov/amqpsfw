@@ -1,7 +1,9 @@
-setup.py
-pypi
-ssl support
-publishing don't require confirms so server can close connection and I even do't know about it(I neven try to read after publish)
+1)setup.py
+2)pypi
+3)ssl support
+4)publishing don't require confirms so server can close connection and I even do't know about it(I neven try to read after publish)
     but if connection is closed we must get socket error but how much messages were lost is unknown - amqp cool protocol
     right now I just check read event on each write request see - apllication.modify_to_write
-test on wrong content frame with check error connection close
+5)test on wrong content frame with check error connection close
+6)add in log msg file name on callee
+7)add travis ci
