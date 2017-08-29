@@ -10,10 +10,10 @@ before_script:
 #  - python -m venv venv
 #  - ~/venv/bin/python -m ensurepip
 #  - echo "$(ls -la venv/bin) "
-#  - cd amqpsfw
   - pip install -r amqpsfw/install/requirements.txt
 #  - git checkout -qf 17b8119796516195527dcb4f454a2ebd41d60244
 script:
+  - cd ~/amqpsfw
   - pytest test/
 after_success: true
 after_failure: true
