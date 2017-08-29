@@ -7,3 +7,4 @@
 5)test on wrong content frame with check error connection close
 6)add in log msg file name on callee
 7) add package build
+8) fix /home/akayunov/sfw/sfw/tools/check.sh

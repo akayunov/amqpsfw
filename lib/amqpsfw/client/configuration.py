@@ -13,9 +13,9 @@ DEFAULT_CONFIG = {
     'heartbeat_interval': 100,
     'virtual_host': '/',
     'logger': {
-        'root': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'ERROR'),
+        'root': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG'),
         'amqpsfw.client.application': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG'),
-        'amqpsfw.ioloop': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'ERROR')
+        'amqpsfw.ioloop': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG')
     }
 }
 

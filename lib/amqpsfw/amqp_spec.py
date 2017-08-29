@@ -550,6 +550,9 @@ def decode_frame(frame_bytes):
         payload_bytes = method_payload
         result = []
         bit_filed_flag = None
+        if FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value] == Basic.Deliver:
+            # import pdb;pdb.set_trace()
+            pass
         for i in FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value].type_structure:
             if issubclass(i, Reserved):
                 continue
@@ -565,6 +568,11 @@ def decode_frame(frame_bytes):
         if bit_filed_flag:
             payload_part, payload_bytes = bit_filed_flag.decode(payload_bytes)
             result.extend(payload_part.decoded_value)
+        try:
+            FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value](*result, channel_number=frame_channel.decoded_value)
+        except Exception as e:
+            import pdb;pdb.set_trace()
+            1+1
         return (
             FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value](*result, channel_number=frame_channel.decoded_value),
             frame_bytes[frame_size.decoded_value+7+1:]

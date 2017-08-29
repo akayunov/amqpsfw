@@ -7,7 +7,7 @@ from collections import deque
 from amqpsfw import amqp_spec
 from amqpsfw.client.configuration import Configuration
 
-from amqpsfw.amwpsfwlogging import init_logger
+from amqpsfw.logger import init_logger
 
 # TODO do blocking connection, my select connection, tornado connection
 log = logging.getLogger(__name__)
@@ -16,6 +16,7 @@ init_logger()
 
 class Application:
     def __init__(self, ioloop):
+        # TODO too many buffers easy to confuse
         self.output_buffer_frames = deque()
         self.output_buffer = [0, b'']
         self.buffer_in = b''
@@ -24,6 +25,15 @@ class Application:
         self.ioloop = ioloop
         self.processor = self.processor()
         self.processor.send(None)
+        res = socket.getaddrinfo(self.host, self.port, socket.AF_INET, socket.SOCK_STREAM)
+        af, socktype, proto, canonname, sa = res[0]
+        self.socket = socket.socket(af, socktype, proto)
+        # TODO do connect non blocking
+        self.socket.connect(sa)
+        self.fileno = self.socket.fileno()
+        protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', *Configuration.amqp_version)
+        self.socket.send(protocol_header.encoded)
+        self.socket.setblocking(0)
 
     def parse_buffer(self):
         frame, buffer_in = amqp_spec.decode_frame(self.buffer_in)
@@ -66,23 +76,20 @@ class Application:
             for frame in iter(self.parse_buffer, None):
                 log.debug('IN: ' + str(int(time.time())) + ' ' + str(frame))
                 response = self.method_handler(frame)
-                # if type(frame) is amqp_spec.Heartbeat:
-                #     self.write(amqp_spec.Heartbeat())
-                # else:
-                #     self.processor.send(frame)
                 if response:
                     self.processor.send(response)
 
     def handle_write(self):
         # TODO use more optimize structure for slice to avoid copping
-        if len(self.output_buffer_frames) > 0:
+        if len(self.output_buffer_frames) > 0 and not self.output_buffer[1]:
             last_frame = self.output_buffer_frames.pop()
             self.output_buffer = [last_frame.dont_wait_response, b''.join([i.encoded for i in self.output_buffer_frames]) + last_frame.encoded]
             self.output_buffer_frames = deque()
         writed_bytes = self.socket.send(self.output_buffer[1])
         self.output_buffer[1] = self.output_buffer[1][writed_bytes:]
-        if not self.output_buffer[1]:
+        if not self.output_buffer[1] and not len(self.output_buffer_frames):
             self.modify_to_read()
+            # TODO move it on namedtuple
             if self.output_buffer[0]:
                 self.processor.send(None)
             self.output_buffer = [0, b'']
@@ -91,18 +98,6 @@ class Application:
         self.modify_to_write()
         self.ioloop.current().call_later(duration, next, self.processor)
         return
-
-    def start(self):
-        res = socket.getaddrinfo(self.host, self.port, socket.AF_INET, socket.SOCK_STREAM)
-        af, socktype, proto, canonname, sa = res[0]
-        self.socket = socket.socket(af, socktype, proto)
-        # TODO do connect non blocking
-        self.socket.connect(sa)
-        self.fileno = self.socket.fileno()
-        protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', *Configuration.amqp_version)
-        self.socket.send(protocol_header.encoded)
-        self.socket.setblocking(0)
-        return self.socket
 
     def processor(self):
         start = yield
@@ -151,14 +146,15 @@ class Application:
 
     def stop(self):
         # TODO flush buffers before ioloop stop
+        self.buffer_in = b''
         self.ioloop.stop()
         self.socket.close()
 
-    def on_close(self, method):
-        log.debug('Connection close:' + str(method))
-        self.write(amqp_spec.Connection.CloseOk())
-        self.stop()
-        return method
+    # def on_close(self, method):
+    #     log.debug('Connection close:' + str(method))
+    #     self.write(amqp_spec.Connection.CloseOk())
+    #     self.stop()
+    #     return method
 
     def on_hearbeat(self, method):
         self.write(amqp_spec.Heartbeat())
@@ -173,7 +169,7 @@ class Application:
     def method_handler(self, method):
         if not self.method_mapper:
             method_mapper = {
-                amqp_spec.Connection.Close: self.on_close,
+                # amqp_spec.Connection.Close: self.on_close,
                 amqp_spec.Heartbeat: self.on_hearbeat,
                 # amqp_spec.Connection.Start: self.on_start
             }

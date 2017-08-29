@@ -131,7 +131,7 @@ class Bit1(AmqpType):
     length = 1
 
     def __init__(self, integers_array):
-        super().__init__(integers_array)
+        super().__init__(integers_array[:self.length])
         r = 0
         for i, v in enumerate(integers_array):
             r += v << i
@@ -139,7 +139,7 @@ class Bit1(AmqpType):
 
     @classmethod
     def decode(cls, binary_data):
-        integers_array = reversed(list(map(int, list(bin(struct.unpack('B', binary_data[0:1])[0])[2:].zfill(8)))))
+        integers_array = list(reversed(list(map(int, list(bin(struct.unpack('B', binary_data[0:1])[0])[2:].zfill(8))))))
         return cls(integers_array), binary_data[1:]
 
 

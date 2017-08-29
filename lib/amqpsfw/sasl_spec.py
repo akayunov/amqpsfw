@@ -8,7 +8,6 @@ class Plain(AmqpType):
         for string in string_array:
             result += ShortShortUint(0)
             result += String(string)
-        # import pdb;pdb.set_trace()
         self.encoded = LongString(result).encoded
 
     @classmethod

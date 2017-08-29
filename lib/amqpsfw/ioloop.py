@@ -6,7 +6,8 @@ IOLOOP = None
 # TODO integration with asyncio
 
 log = logging.getLogger(__name__)
-
+STOP = 'STOP'
+RUNNING = 'RUNNING'
 
 class IOLoopException(Exception):
     def __init__(self, code, msg):
@@ -39,6 +40,7 @@ class IOLoop:
         self.impl = select.epoll()
         # TODO use heapq to sort callbacks by timeout
         self.callbacks = {}
+        self.status = RUNNING
 
     @staticmethod
     def current():
@@ -76,6 +78,8 @@ class IOLoop:
 
     def start(self):
         while 1:
+            if self.status == STOP:
+                break
             next_timeout_callback = self.run_callbacks()
             events = self.impl.poll(next_timeout_callback)  # TODO signals interupt this call??
             log.debug('POOL: %s %s %s', str(int(time.time())), next_timeout_callback, events)
@@ -100,4 +104,4 @@ class IOLoop:
 
     def stop(self):
         # TODO flush buffers
-        pass
+        self.status = STOP

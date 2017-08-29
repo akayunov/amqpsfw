@@ -13,7 +13,6 @@ from amqpsfw.amqp_types import (AmqpType, String, Reserved, ShortString, Consume
                                 TimeStamp, ShortShortInt)
 
 
-# TODO test complex type Header FiledArray FiledTAble
 # TODO add test for SASL type
 
 
