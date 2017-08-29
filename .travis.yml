@@ -7,11 +7,11 @@ install: true
 before_script:
   - cd
   - git clone https://github.com/akayunov/amqpsfw.git
-  - python -m venv venv
-  - ~/venv/bin/python -m ensurepip
-  - echo "$(ls -la venv/bin) "
+#  - python -m venv venv
+#  - ~/venv/bin/python -m ensurepip
+#  - echo "$(ls -la venv/bin) "
 #  - cd amqpsfw
-  - ~/venv/bin/pip install -r amqpsfw/install/requirements.txt
+  - pip install -r amqpsfw/install/requirements.txt
 #  - git checkout -qf 17b8119796516195527dcb4f454a2ebd41d60244
 script:
   - pytest test/
