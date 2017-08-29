@@ -3,9 +3,9 @@ python:
   - "3.6"
 sudo: enabled
 before_install:
-  - rabbitmqctl add_user root2 privetserver
-  - rabbitmqctl  set_user_tags root2 administrator
-  - rabbitmqctl  set_permissions -p / root2 conf write read
+  - sudo rabbitmqctl add_user root privetserver
+  - sudo rabbitmqctl set_user_tags root administrator
+  - sudo rabbitmqctl set_permissions -p / root conf write read
 install: true
 #  - pip install -e . --use-mirrors
 before_script:
