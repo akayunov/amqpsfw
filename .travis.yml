@@ -5,6 +5,7 @@ before_install: true
 install: true
 #  - pip install -e . --use-mirrors
 before_script:
+  - cd
   - git clone https://github.com/akayunov/amqpsfw.git
   - python -m venv venv
   - ls -la venv/bin
