@@ -8,6 +8,7 @@ before_script:
   - cd
   - git clone https://github.com/akayunov/amqpsfw.git
   - python -m venv venv
+  - ~/venv/bin/python -m ensurepip
   - echo "$(ls -la venv/bin) "
 #  - cd amqpsfw
   - ~/venv/bin/pip install -r amqpsfw/install/requirements.txt
