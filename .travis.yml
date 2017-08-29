@@ -2,6 +2,8 @@ language: python
 python:
   - "3.6"
 sudo: enabled
+services:
+  - rabbitmq
 before_install:
   - sudo rabbitmqctl add_user root privetserver
   - sudo rabbitmqctl set_user_tags root administrator
