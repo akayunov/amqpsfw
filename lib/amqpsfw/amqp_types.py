@@ -438,6 +438,7 @@ class HeaderProperty(AmqpType):
 
     def __init__(self, properties):
         super().__init__(properties)
+        properties = dict(sorted(properties.items(), key=lambda x: self.properties_table.index(x[0])))
         property_flag = 0
         result = AmqpType('')
 

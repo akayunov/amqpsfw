@@ -6,5 +6,4 @@
     right now I just check read event on each write request see - apllication.modify_to_write
 5)test on wrong content frame with check error connection close
 6)add in log msg file name on callee
-7)add travis ci
-8) add coverage from https://coveralls.zendesk.com/hc/en-us
+7) add package build

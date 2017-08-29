@@ -22,10 +22,11 @@ class TestAmqpSpec:
     def test_heartbeat(self):
         heartbeat = amqp_spec.Heartbeat()
         assert amqp_spec.decode_frame(heartbeat.encoded) == (heartbeat, b'')
-    # def test_content_header(self):
-    #     c_header = amqp_spec.Header(class_id=40, weight=15, body_size=1536136,
-    #                                 header_properties={'content­encoding': 'identity', 'user­id': 'tratata', 'delivery­mode': 111}, channel_number=14)
-    #     assert amqp_spec.decode_frame(c_header.encoded) == (c_header, b'')
+
+    def test_content_header(self):
+        c_header = amqp_spec.Header(class_id=40, weight=15, body_size=1536136,
+                                    header_properties={'content­encoding': 'identity', 'user­id': 'tratata', 'delivery­mode': 111}, channel_number=14)
+        assert amqp_spec.decode_frame(c_header.encoded) == (c_header, b'')
 
     def test_content(self):
         content = amqp_spec.Content('sdgsgagasgd')
@@ -40,3 +41,7 @@ class TestAmqpSpec:
     def test_connection_startok(self):
         start_ok = amqp_spec.Connection.StartOk(peer_properties={'tratata': 121}, mechanism='PLAIN', credential=['user', 'password'], locale='en_US',  channel_number=123)
         assert  amqp_spec.decode_frame(start_ok.encoded) == (start_ok, b'')
+
+    def test_connection_secure(self):
+        secure = amqp_spec.Connection.Secure(challenge='tratatata', channel_number=124)
+        assert amqp_spec.decode_frame(secure.encoded) == (secure, b'')
