@@ -97,11 +97,9 @@ class TestApplicationExceptionPublish:
                 # response = yield self.write(amqp_spec.Connection.Close())
                 yield self.stop()
 
-
         def start_aplication():
             io_loop = ioloop.IOLoop()
-            app = PublishAplication(io_loop)
-            io_loop.add_handler(app.socket.fileno(), app.handler, io_loop.READ)
+            PublishAplication(io_loop)
             io_loop.start()
 
         start_aplication()

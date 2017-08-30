@@ -78,8 +78,7 @@ class TestApplicationPublishTornado:
 
         def start_aplication():
             io_loop = ioloop.IOLoop()
-            app = TornadoAplication(ioloop=io_loop)
-            io_loop.add_handler(app.socket.fileno(), app.handler, io_loop.READ)
+            TornadoAplication(ioloop=io_loop)
             io_loop.start()
 
         start_aplication()

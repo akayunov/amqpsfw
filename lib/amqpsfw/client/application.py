@@ -24,7 +24,6 @@ class Application:
         self.port = Configuration.port
         self.ioloop = ioloop
         self.processor = self.processor()
-        self.processor.send(None)
         res = socket.getaddrinfo(self.host, self.port, socket.AF_INET, socket.SOCK_STREAM)
         af, socktype, proto, canonname, sa = res[0]
         self.socket = socket.socket(af, socktype, proto)
@@ -34,6 +33,8 @@ class Application:
         protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', *Configuration.amqp_version)
         self.socket.send(protocol_header.encoded)
         self.socket.setblocking(0)
+        self.ioloop.add_handler(self.socket.fileno(), self.handler, ioloop.READ)
+        self.processor.send(None)
 
     def parse_buffer(self):
         frame, buffer_in = amqp_spec.decode_frame(self.buffer_in)

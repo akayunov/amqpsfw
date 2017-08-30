@@ -81,8 +81,7 @@ class TestApplicationConsumer:
 
         def start_aplication():
             io_loop = ioloop.IOLoop()
-            app = ConsumerAplication(io_loop)
-            io_loop.add_handler(app.socket.fileno(), app.handler, io_loop.READ)
+            ConsumerAplication(io_loop)
             io_loop.start()
 
         start_aplication()
