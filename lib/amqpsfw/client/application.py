@@ -45,14 +45,15 @@ class Application:
         # TODO add more events type
         if event & self.ioloop.READ or not event:
             self.handle_read()
-        elif event & self.ioloop.WRITE:
+        if event & self.ioloop.WRITE:
             self.handle_write()
-        elif event & self.ioloop._EPOLLHUP:
-            pass
-        elif event & self.ioloop.ERROR:
-            pass
-        elif event & self.ioloop._EPOLLRDHUP:
-            pass
+        # TODO fix it
+        # if event & self.ioloop._EPOLLHUP:
+        #     pass
+        # if event & self.ioloop.ERROR:
+        #     pass
+        # if event & self.ioloop._EPOLLRDHUP:
+        #     pass
 
     def modify_to_read(self):
         events = select.EPOLLIN | select.EPOLLERR | select.EPOLLPRI | select.EPOLLRDBAND | select.EPOLLHUP | select.EPOLLRDHUP
@@ -64,7 +65,6 @@ class Application:
         self.ioloop.update_handler(self.fileno, events)
 
     def write(self, value):
-        log.debug('OUT:' + str(int(time.time())) + ' ' + str(value))
         self.output_buffer_frames.append(value)
         self.modify_to_write()
 
@@ -86,8 +86,10 @@ class Application:
             last_frame = self.output_buffer_frames.pop()
             self.output_buffer = [last_frame.dont_wait_response, b''.join([i.encoded for i in self.output_buffer_frames]) + last_frame.encoded]
             self.output_buffer_frames = deque()
-        writed_bytes = self.socket.send(self.output_buffer[1])
-        self.output_buffer[1] = self.output_buffer[1][writed_bytes:]
+            log.debug('OUT:' + str(int(time.time())) + ' ' + str(last_frame))
+        if self.output_buffer[1]:
+            writed_bytes = self.socket.send(self.output_buffer[1])
+            self.output_buffer[1] = self.output_buffer[1][writed_bytes:]
         if not self.output_buffer[1] and not len(self.output_buffer_frames):
             self.modify_to_read()
             # TODO move it on namedtuple
@@ -106,8 +108,11 @@ class Application:
     def stop(self):
         # TODO flush buffers before ioloop stop
         self.buffer_in = b''
+        self.output_buffer_frames = deque()
+        self.output_buffer = [0, b'']
         self.ioloop.stop()
-        self.socket.close()
+        # TODO fix it - uncomment and get error on handle_write because in handle we put in second branch on write event
+        # self.socket.close()
 
     def on_hearbeat(self, method):
         self.write(amqp_spec.Heartbeat())

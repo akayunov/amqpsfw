@@ -9,10 +9,11 @@ from amqpsfw import amqp_spec, ioloop
 from amqpsfw.client.configuration import Configuration
 
 class TestApplicationConsumer:
-    @pytest.mark.skip
     def test_application_consumer(self):
         class ConsumerAplication(application.Application):
-            method_mapper = {}
+            method_mapper = {
+                amqp_spec.Heartbeat: application.Application.on_hearbeat,
+            }
 
             def processor(self):
                 channel_number = 1
@@ -70,15 +71,19 @@ class TestApplicationConsumer:
                 consume = amqp_spec.Basic.Consume(queue_name='text', consumer_tag='first_consumer', channel_number=channel_number)
                 consume_ok = yield self.write(consume)
                 assert type(consume_ok) is amqp_spec.Basic.ConsumeOk
+                result = []
+                # TODO Basic.Ack don't required response so if bufer in empty we get NOne if buffer full of vrame we get somethink - fix it
+                # TODO if we have intensive input then output is stopped because ioloot get many read events
                 for i in range(90):
-                    delivery = yield
-                    # import pdb;pdb.set_trace()
-                    assert type(delivery) == amqp_spec.Basic.Deliver
-                    header = yield
-                    assert type(header) == amqp_spec.Header
-                    content = yield
-                    assert type(content) == amqp_spec.Content
-                    self.write(amqp_spec.Basic.Ack(delivery_tag=delivery.delivery_tag, channel_number=delivery.channel_number))
+                    res = yield
+                    if res:
+                        result.append(res)
+                        if type(res) == amqp_spec.Content:
+                            self.write(amqp_spec.Basic.Ack(delivery_tag=result[0].delivery_tag, channel_number=result[0].channel_number))
+                            assert type(result[0]) == amqp_spec.Basic.Deliver
+                            assert type(result[1]) == amqp_spec.Header
+                            assert type(result[2]) == amqp_spec.Content
+                            result = []
                 yield self.stop()
 
         def start_aplication():
