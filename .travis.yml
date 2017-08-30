@@ -20,9 +20,9 @@ before_script:
 #  - git checkout -qf 17b8119796516195527dcb4f454a2ebd41d60244
 script:
   - cd ~/amqpsfw
-  #- pytest test/ --cov lib
   - python --version
-  - python bin/rmq_pusher.py
+  - pytest test/ --cov lib
+#  - python bin/rmq_pusher.py
 after_success:
   - coveralls
 after_failure: true
