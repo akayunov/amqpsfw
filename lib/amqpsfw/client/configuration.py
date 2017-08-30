@@ -10,7 +10,7 @@ DEFAULT_CONFIG = {
     'credential': namedtuple('Credential', ['user', 'password'])('root', 'privetserver'),
     'sals_mechanism': 'PLAIN',
     'amqp_version': (0, 0, 9, 1),
-    'heartbeat_interval': 100,
+    'heartbeat_interval': 1,
     'virtual_host': '/',
     'logger': {
         'root': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG'),
