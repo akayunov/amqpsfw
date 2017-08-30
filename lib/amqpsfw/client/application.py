@@ -100,49 +100,7 @@ class Application:
         return
 
     def processor(self):
-        start = yield
-        start_ok = amqp_spec.Connection.StartOk({'host': Configuration.host}, Configuration.sals_mechanism, credential=[Configuration.credential.user, Configuration.credential.password])
-        tune = yield self.write(start_ok)
-
-        tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=Configuration.heartbeat_interval)
-        # yield self.write(tune_ok)  # it works too!!!! and frame must be send to server
-        self.write(tune_ok)  # it works too!!!! and frame will be send to server on next yield
-
-        c_open = amqp_spec.Connection.Open(virtual_host=Configuration.virtual_host)
-        openok = yield self.write(c_open)
-
-        #channel_obj = amqp_spec.Channel()
-        #ch_open = channel_obj.Open(channel_number=1)
-        ch_open1 = amqp_spec.Channel.Open(channel_number=1)
-        ch_open_ok = yield self.write(ch_open1)
-
-        ch_open2 = amqp_spec.Channel.Open(channel_number=2)
-        ch_open_ok = yield self.write(ch_open2)
-
-        flow = amqp_spec.Channel.Flow(channel_number=ch_open1.channel_number)
-        flow_ok = yield self.write(flow)
-
-        ex_declare = amqp_spec.Exchange.Declare('message', channel_number=ch_open1.channel_number)
-        declare_ok = yield self.write(ex_declare)
-
-        declare_q = amqp_spec.Queue.Declare(queue_name='text', channel_number=ch_open1.channel_number)
-        declare_q_ok = yield self.write(declare_q)
-
-        bind = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=ch_open1.channel_number)
-        bind_ok = yield self.write(bind)
-
-
-        flow = amqp_spec.Channel.Flow(channel_number=ch_open2.channel_number)
-        flow_ok = yield self.write(flow)
-
-        ex_declare = amqp_spec.Exchange.Declare('message', channel_number=ch_open2.channel_number)
-        declare_ok = yield self.write(ex_declare)
-
-        declare_q = amqp_spec.Queue.Declare(queue_name='text', channel_number=ch_open2.channel_number)
-        declare_q_ok = yield self.write(declare_q)
-
-        bind = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=ch_open2.channel_number)
-        bind_ok = yield self.write(bind)
+        yield
 
     def stop(self):
         # TODO flush buffers before ioloop stop
@@ -150,31 +108,42 @@ class Application:
         self.ioloop.stop()
         self.socket.close()
 
-    # def on_close(self, method):
-    #     log.debug('Connection close:' + str(method))
-    #     self.write(amqp_spec.Connection.CloseOk())
-    #     self.stop()
-    #     return method
-
     def on_hearbeat(self, method):
         self.write(amqp_spec.Heartbeat())
 
-    def on_start(self, method):
-        start_ok = amqp_spec.Connection.StartOk({'host': Configuration.host}, Configuration.sals_mechanism,
-                                                credential=[Configuration.credential.user, Configuration.credential.password])
-        self.write(start_ok)
+    def on_connection_start(self, method):
+        self.write(amqp_spec.Connection.StartOk({'host': Configuration.host}, Configuration.sals_mechanism, credential=[Configuration.credential.user, Configuration.credential.password]))
 
-    method_mapper = {}
+    def on_connection_tune(self, method):
+        self.write(amqp_spec.Connection.TuneOk(heartbeat_interval=Configuration.heartbeat_interval))
+
+    def on_connection_secure(self, method):
+        self.write(amqp_spec.Connection.SecureOk(response='tratata'))
+
+    def on_connection_close(self, method):
+        start_ok = amqp_spec.Connection.CloseOk()
+        self.write(start_ok)
+        # TODO fix it
+        # self.stop()
+
+    def on_channel_flow(self, method):
+        self.write(amqp_spec.Channel.FlowOk())
+
+    def on_channel_close(self, method):
+        self.write(amqp_spec.Channel.CloseOk())
+
+    method_mapper = {
+        amqp_spec.Heartbeat: on_hearbeat,
+        amqp_spec.Connection.Start: on_connection_start,
+        amqp_spec.Connection.Tune: on_connection_tune,
+        amqp_spec.Connection.Secure: on_connection_secure,
+        amqp_spec.Connection.Close: on_connection_close,
+        amqp_spec.Channel.Flow: on_channel_flow,
+        amqp_spec.Channel.Close: on_channel_close
+    }
 
     def method_handler(self, method):
-        if not self.method_mapper:
-            method_mapper = {
-                # amqp_spec.Connection.Close: self.on_close,
-                amqp_spec.Heartbeat: self.on_hearbeat,
-                # amqp_spec.Connection.Start: self.on_start
-            }
-            setattr(type(self), 'method_mapper', method_mapper)
         if type(method) in self.method_mapper:
-            return self.method_mapper[type(method)](method)
+            return self.method_mapper[type(method)](self, method)
         else:
             return method

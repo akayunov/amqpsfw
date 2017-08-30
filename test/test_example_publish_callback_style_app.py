@@ -9,19 +9,11 @@ from amqpsfw.client.configuration import Configuration
 
 
 class TestApplicationPublish:
-    def test_application_publish_simple(self):
+    def test_application_publish_callback(self):
         class PublishAplication(application.Application):
-            method_mapper = {}
-
             def processor(self):
                 channel_number = 1
-                start = yield from super().processor()
-                start_ok = amqp_spec.Connection.StartOk({'host': Configuration.host}, Configuration.sals_mechanism, credential=[Configuration.credential.user, Configuration.credential.password])
-                tune = yield self.write(start_ok)
-
-                tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=Configuration.heartbeat_interval)
-                # yield self.write(tune_ok)  # it works too!!!! and frame must be send to server
-                self.write(tune_ok)  # it works too!!!! and frame will be send to server on next yield
+                yield from super().processor()
 
                 c_open = amqp_spec.Connection.Open(virtual_host=Configuration.virtual_host)
                 openok = yield self.write(c_open)
