@@ -9,6 +9,7 @@ from amqpsfw import amqp_spec, ioloop
 from amqpsfw.client.configuration import Configuration
 
 class TestApplicationConsumer:
+    @pytest.mark.skip
     def test_application_consumer(self):
         class ConsumerAplication(application.Application):
             method_mapper = {

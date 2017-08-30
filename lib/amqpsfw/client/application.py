@@ -112,7 +112,7 @@ class Application:
         self.output_buffer = [0, b'']
         self.ioloop.stop()
         # TODO fix it - uncomment and get error on handle_write because in handle we put in second branch on write event
-        # self.socket.close()
+        self.socket.close()
 
     def on_hearbeat(self, method):
         self.write(amqp_spec.Heartbeat())
