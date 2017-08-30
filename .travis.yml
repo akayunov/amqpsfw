@@ -21,7 +21,8 @@ before_script:
 script:
   - cd ~/amqpsfw
   #- pytest test/ --cov lib
-  - bin/rmq_pusher.py
+  - python --version
+  - python bin/rmq_pusher.py
 after_success:
   - coveralls
 after_failure: true
