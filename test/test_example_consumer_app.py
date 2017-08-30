@@ -3,11 +3,13 @@ import sys
 
 sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
 
+import pytest
 from amqpsfw.client import application
 from amqpsfw import amqp_spec, ioloop
 from amqpsfw.client.configuration import Configuration
 
 class TestApplicationConsumer:
+    @pytest.mark.skip
     def test_application_consumer(self):
         class ConsumerAplication(application.Application):
             method_mapper = {}
