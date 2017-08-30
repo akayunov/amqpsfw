@@ -1,5 +1,6 @@
 import os.path
 import sys
+import pytest
 
 sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
 
@@ -8,6 +9,7 @@ from amqpsfw import amqp_spec, ioloop
 from amqpsfw.client.configuration import Configuration
 
 class TestApplicationExceptionPublish:
+    @pytest.mark.skip
     def test_application_exception_publish(self):
         class PublishAplication(application.Application):
             method_mapper = {}
