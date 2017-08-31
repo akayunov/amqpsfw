@@ -23,6 +23,7 @@ class Application:
         self.host = Configuration.host
         self.port = Configuration.port
         self.ioloop = ioloop
+        self.status = 'RUNNING'
         self.processor = self.processor()
         res = socket.getaddrinfo(self.host, self.port, socket.AF_INET, socket.SOCK_STREAM)
         af, socktype, proto, canonname, sa = res[0]
@@ -38,9 +39,9 @@ class Application:
 
     def handler(self, fd, event):
         # TODO add more events type
-        if event & self.ioloop.READ or not event:
+        if event & self.ioloop.READ and self.status == 'RUNNING':
             self.handle_read()
-        if event & self.ioloop.WRITE:
+        if event & self.ioloop.WRITE and self.status == 'RUNNING':
             self.handle_write()
         # TODO fix it
         # if event & self.ioloop._EPOLLHUP:
@@ -129,6 +130,7 @@ class Application:
         self.buffer_in['need_to_read'] = 0
         self.output_buffer_frames = deque()
         self.output_buffer = [0, b'']
+        self.status = 'STOPPED'
         self.ioloop.stop()
         # TODO fix it - uncomment and get error on handle_write because in handle we put in second branch on write event
         self.socket.close()

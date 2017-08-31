@@ -75,19 +75,19 @@ class TestApplicationExceptionPublish:
                     if response:
                         # import pdb;pdb.set_trace()
                         assert type(response) == amqp_spec.Connection.Close
-                        break
+                        yield self.stop()
                     response = yield self.write(amqp_spec.Header(class_id=amqp_spec.Basic.Publish.class_id, body_size=len(content), header_properties={'content-type': 'application/json'},channel_number=channel_number))
                     if response:
                         assert type(response) == amqp_spec.Connection.Close
                         # import pdb;
                         # pdb.set_trace()
-                        break
+                        yield self.stop()
                     response = yield self.write(amqp_spec.Content(content=content, channel_number=channel_number))
                     if response:
                         assert type(response) == amqp_spec.Connection.Close
                         # import pdb;
                         # pdb.set_trace()
-                        break
+                        yield self.stop()
                 # assert type(response) is amqp_spec.Connection.Close
                 # import pdb;pdb.set_trace()
                 # response = yield self.sleep(10)
@@ -96,7 +96,7 @@ class TestApplicationExceptionPublish:
 
                 # response = yield self.write(amqp_spec.Channel.Close(channel_number=channel_number))
                 # response = yield self.write(amqp_spec.Connection.Close())
-                yield self.stop()
+
 
         def start_aplication():
             io_loop = ioloop.IOLoop()
