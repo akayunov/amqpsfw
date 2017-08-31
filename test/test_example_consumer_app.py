@@ -4,12 +4,19 @@ import sys
 sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
 
 import pytest
+import  logging
 from amqpsfw.client import application
 from amqpsfw import amqp_spec, ioloop
 from amqpsfw.client.configuration import Configuration
 
+
+from amqpsfw.logger import init_logger
+
+log = logging.getLogger(__name__)
+init_logger()
+
 class TestApplicationConsumer:
-    @pytest.mark.skip
+
     def test_application_consumer(self):
         class ConsumerAplication(application.Application):
             method_mapper = {
@@ -77,10 +84,13 @@ class TestApplicationConsumer:
                 # TODO if we have intensive input then output is stopped because ioloot get many read events
                 for i in range(90):
                     res = yield
+                    # log.error('TTTTTTTTTTTTTTTTTTTTTTTTTT: ' + str(res))
                     if res:
                         result.append(res)
                         if type(res) == amqp_spec.Content:
-                            self.write(amqp_spec.Basic.Ack(delivery_tag=result[0].delivery_tag, channel_number=result[0].channel_number))
+                            # log.error('SSSSSSSSSSSSSSSSSSSSSSSSS: ' + str(result))
+                            assert result[0].delivery_tag == (i+1)/3
+                            yield self.write(amqp_spec.Basic.Ack(delivery_tag=result[0].delivery_tag, channel_number=result[0].channel_number))
                             assert type(result[0]) == amqp_spec.Basic.Deliver
                             assert type(result[1]) == amqp_spec.Header
                             assert type(result[2]) == amqp_spec.Content

@@ -83,6 +83,9 @@ class ProtocolHeader(Frame):
         self.set_payload(c1=c1, c2=c2, c3=c3, c4=c4, v1=v1, v2=v2, v3=v3, v4=v4)
         self.encoded = self.payload.encoded
 
+    def __len__(self):
+        return 8
+
 
 class Method(Frame):
     frame_type = 1
@@ -518,41 +521,38 @@ FRAME_TYPES = {
 
 def decode_frame(frame_bytes):
     # TODO use memoryview, avoid too much copping
-    if len(frame_bytes) < 7:
-        return None, frame_bytes
-    if frame_bytes.startswith(b'AMQP') and len(frame_bytes) > 7:
+    if len(frame_bytes) < 8:
+        return 0, None, frame_bytes
+    if frame_bytes.startswith(b'AMQP') and len(frame_bytes) >= 8:
         result = []
         for i in ProtocolHeader.type_structure:
             payload_part, frame_bytes = i.decode(frame_bytes)
             result.append(payload_part.decoded_value)
-        return ProtocolHeader(*result), frame_bytes[8:]
+        return 0, ProtocolHeader(*result), frame_bytes[8:]
 
-    (frame_type, _), (frame_channel, _), (frame_size, _) = ShortShortUint.decode(bytes([frame_bytes[0]])), ShortUint.decode(frame_bytes[1:3]), LongUint.decode(frame_bytes[3:7])
-    if frame_size.decoded_value > len(frame_bytes[7:]) - 1:
+    (frame_type, _), (frame_channel, _), (payload_size, _) = ShortShortUint.decode(bytes([frame_bytes[0]])), ShortUint.decode(frame_bytes[1:3]), LongUint.decode(frame_bytes[3:7])
+    if payload_size.decoded_value > len(frame_bytes[7:]) - 1:
         # data is non efficient
-        return None, frame_bytes
-    frame_payload, frame_end = frame_bytes[7:frame_size.decoded_value+7], frame_bytes[frame_size.decoded_value+7]
+        return payload_size.decoded_value, None, frame_bytes
+    frame_payload, frame_end = frame_bytes[7:payload_size.decoded_value+7], frame_bytes[payload_size.decoded_value+7]
     if frame_end != frame_end:
         raise SfwException('Internal', 'Wrong frame end')
-    if frame_size.decoded_value != len(frame_payload):
+    if payload_size.decoded_value != len(frame_payload):
         raise SfwException('Internal', 'Wrong frame size')
     if frame_type == ShortShortUint(8):
-        return FRAME_TYPES[frame_type.decoded_value](), frame_bytes[frame_size.decoded_value+7+1:]
+        return 0, FRAME_TYPES[frame_type.decoded_value](), frame_bytes[payload_size.decoded_value+7+1:]
     elif frame_type in [ShortShortUint(2), ShortShortUint(3)]:
         result = []
         for i in FRAME_TYPES[frame_type.decoded_value].type_structure:
             payload_part, frame_payload = i.decode(frame_payload)
             result.append(payload_part.decoded_value)
-        return FRAME_TYPES[frame_type.decoded_value](*result, channel_number=frame_channel.decoded_value), frame_bytes[frame_size.decoded_value+7+1:]
+        return payload_size.decoded_value, FRAME_TYPES[frame_type.decoded_value](*result, channel_number=frame_channel.decoded_value), frame_bytes[payload_size.decoded_value+7+1:]
     else:
         method_bytes = frame_payload
         (class_id, _), (method_id, _), method_payload = ShortUint.decode(method_bytes[0:2]), ShortUint.decode(method_bytes[2:4]), method_bytes[4: len(method_bytes)]
         payload_bytes = method_payload
         result = []
         bit_filed_flag = None
-        if FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value] == Basic.Deliver:
-            # import pdb;pdb.set_trace()
-            pass
         for i in FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value].type_structure:
             if issubclass(i, Reserved):
                 continue
@@ -568,12 +568,8 @@ def decode_frame(frame_bytes):
         if bit_filed_flag:
             payload_part, payload_bytes = bit_filed_flag.decode(payload_bytes)
             result.extend(payload_part.decoded_value)
-        try:
-            FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value](*result, channel_number=frame_channel.decoded_value)
-        except Exception as e:
-            import pdb;pdb.set_trace()
-            1+1
         return (
+            payload_size.decoded_value,
             FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value](*result, channel_number=frame_channel.decoded_value),
-            frame_bytes[frame_size.decoded_value+7+1:]
+            frame_bytes[payload_size.decoded_value+7+1:]
         )

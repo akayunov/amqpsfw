@@ -9,7 +9,6 @@ from amqpsfw import amqp_spec, ioloop
 from amqpsfw.client.configuration import Configuration
 
 class TestApplicationExceptionPublish:
-    @pytest.mark.skip
     def test_application_exception_publish(self):
         class PublishAplication(application.Application):
             method_mapper = {}

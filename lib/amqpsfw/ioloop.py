@@ -9,6 +9,7 @@ log = logging.getLogger(__name__)
 STOP = 'STOP'
 RUNNING = 'RUNNING'
 
+
 class IOLoopException(Exception):
     def __init__(self, code, msg):
         self.code = code
@@ -84,21 +85,7 @@ class IOLoop:
             events = self.impl.poll(next_timeout_callback)  # TODO signals interupt this call??
             log.debug('POOL: %s %s %s', str(int(time.time())), next_timeout_callback, events)
             for fd, event in events:
-                # TODO add more event type checking
-                if event & (select.EPOLLIN | select.EPOLLPRI | select.EPOLLRDBAND):
-                    log.debug('IN: %s %s %s', str(int(time.time())), events, next_timeout_callback)
-                    self.handler(self.fileno, event)
-                if event & select.EPOLLOUT:
-                    log.debug('OUT: %s %s %s',  str(int(time.time())), events, next_timeout_callback)
-                    self.handler(self.fileno, event)
-                if event & select.EPOLLHUP:
-                    pass
-                if event & select.EPOLLERR:
-                    pass
-                if event & select.EPOLLRDHUP:
-                    pass
-                # else:
-                #     raise IOLoopException('IOLOOP', 'Unknown error socket state')
+                self.handler(self.fileno, event)
             if not events:
                 self.run_callbacks()
 
