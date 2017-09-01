@@ -6,7 +6,6 @@ from collections import deque
 
 from amqpsfw import amqp_spec
 from amqpsfw.client.configuration import Configuration
-
 from amqpsfw.logger import init_logger
 
 # TODO do blocking connection
