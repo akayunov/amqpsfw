@@ -125,7 +125,7 @@ class Application:
         return
 
     def processor(self):
-        yield
+        raise NotImplementedError
 
     def stop(self):
         self.buffer_in['bytes'] = b''
