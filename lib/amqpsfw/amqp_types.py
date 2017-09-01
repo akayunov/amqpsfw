@@ -3,9 +3,6 @@ import struct
 from amqpsfw.exceptions import SfwException
 
 
-# TODO use memory view on slicing
-
-
 class AmqpType:
     def __init__(self, data):
         self.encoded = b''

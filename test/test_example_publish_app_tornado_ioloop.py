@@ -3,8 +3,7 @@ import sys
 
 sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
 
-from amqpsfw.client import application
-from amqpsfw import amqp_spec
+from amqpsfw import amqp_spec, application
 from amqpsfw.client.configuration import Configuration
 from tornado import ioloop
 

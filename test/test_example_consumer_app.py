@@ -4,8 +4,7 @@ import sys
 sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
 
 import  logging
-from amqpsfw.client import application
-from amqpsfw import amqp_spec, ioloop
+from amqpsfw import amqp_spec, ioloop, application
 from amqpsfw.client.configuration import Configuration
 
 

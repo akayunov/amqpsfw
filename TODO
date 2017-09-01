@@ -10,3 +10,5 @@
 8) fix /home/akayunov/sfw/sfw/tools/check.sh
 9) add test on each function in code just look at it and DO it!!!
 10) use pypy, cython
+11) do blocking connection
+12) use memory view on slicing

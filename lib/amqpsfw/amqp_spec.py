@@ -520,7 +520,6 @@ FRAME_TYPES = {
 
 
 def decode_frame(frame_bytes):
-    # TODO use memoryview, avoid too much copping
     if len(frame_bytes) < 8:
         return 0, None, frame_bytes
     if frame_bytes.startswith(b'AMQP') and len(frame_bytes) >= 8:
