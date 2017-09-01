@@ -2,19 +2,22 @@ import logging
 import select
 import socket
 import time
-from collections import deque, namedtuple
+from collections import deque
 
 from amqpsfw import amqp_spec
 from amqpsfw.client.configuration import Configuration
 
 from amqpsfw.logger import init_logger
 
-# TODO do blocking connection, my select connection, tornado connection
+# TODO do blocking connection
 log = logging.getLogger(__name__)
 init_logger()
 
 
 class Application:
+    STOPPED = 'STOPPPED'
+    RUNNING = 'RUNNING'
+
     def __init__(self, ioloop):
         # TODO too many buffers easy to confuse
         self.output_buffer_frames = deque()
@@ -43,6 +46,8 @@ class Application:
             self.handle_read()
         if event & self.ioloop.WRITE and self.status == 'RUNNING':
             self.handle_write()
+        if event & self.ioloop.ERROR:
+            self.handle_error()
         # TODO fix it
         # if event & self.ioloop._EPOLLHUP:
         #     pass
@@ -68,7 +73,6 @@ class Application:
         self.ioloop.update_handler(self.fileno, events)
 
     def modify_to_write(self):
-        # TODO EPOLLIN - tests it
         events = select.EPOLLOUT | select.EPOLLIN | select.EPOLLERR | select.EPOLLHUP | select.EPOLLRDHUP
         self.ioloop.update_handler(self.fileno, events)
 
@@ -76,19 +80,18 @@ class Application:
         self.output_buffer_frames.append(value)
         self.modify_to_write()
 
+    def handle_error(self):
+        raise NotImplementedError
+
     def handle_read(self):
         # TODO if many dat ain buffer then we will be run this cycle while buffe became empty but in case Basic.Ack we need to write it immediatly
-        # try to read only one frame in time but it's inefficient
-        # so I need to rethink this handle_read and hanle_write
+        # TODO try to read only one frame in time but it's inefficient
+        # TODO so I need to rethink this handle_read and hanle_write
         if not self.buffer_in['bytes']:
             self.buffer_in['bytes'] += self.socket.recv(8)
         else:
             self.buffer_in['bytes'] += self.socket.recv(self.buffer_in['need_to_read'])
-        # if len(self.buffer_in['bytes']) > 1000:
-        #     import pdb;pdb.set_trace()
-        # log.error(self.buffer_in['bytes'])
         payload_size, frame, _ = amqp_spec.decode_frame(self.buffer_in['bytes'])
-        # log.error('XXXXXXXXXXXXXXXXXXXX: ' + str(payload_size) + str(frame) + str(_))
         # TODO handle read known about frame structure - non good for him
         self.buffer_in['need_to_read'] = payload_size - (len(self.buffer_in['bytes']) - 8)
         if frame:
@@ -97,6 +100,7 @@ class Application:
             log.debug('IN: ' + str(int(time.time())) + ' ' + str(frame))
             response = self.method_handler(frame)
             if response:
+                # TODO why this try here?
                 try:
                     self.processor.send(response)
                 except StopIteration:
@@ -116,6 +120,7 @@ class Application:
             self.modify_to_read()
             # TODO move it on namedtuple
             if self.output_buffer[0]:
+                # TODO why this try here?
                 try:
                     self.processor.send(None)
                 except StopIteration:
@@ -131,14 +136,12 @@ class Application:
         yield
 
     def stop(self):
-        # TODO flush buffers before ioloop stop
         self.buffer_in['bytes'] = b''
         self.buffer_in['need_to_read'] = 0
         self.output_buffer_frames = deque()
         self.output_buffer = [0, b'']
-        self.status = 'STOPPED'
+        self.status = self.STOPPED
         self.ioloop.stop()
-        # TODO fix it - uncomment and get error on handle_write because in handle we put in second branch on write event
         self.socket.close()
 
     def on_hearbeat(self, method):
@@ -156,8 +159,7 @@ class Application:
     def on_connection_close(self, method):
         start_ok = amqp_spec.Connection.CloseOk()
         self.write(start_ok)
-        # TODO fix it
-        # self.stop()
+        self.stop()
 
     def on_channel_flow(self, method):
         self.write(amqp_spec.Channel.FlowOk())

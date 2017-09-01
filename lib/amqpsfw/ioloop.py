@@ -2,11 +2,11 @@ import logging
 import time
 import select
 from functools import partial
-IOLOOP = None
-# TODO integration with asyncio
 
+# TODO integration with asyncio
+IOLOOP = None
 log = logging.getLogger(__name__)
-STOP = 'STOP'
+STOPPED = 'STOPPED'
 RUNNING = 'RUNNING'
 
 
@@ -22,6 +22,7 @@ class IOLoopException(Exception):
 class IOLoop:
     READ = select.EPOLLIN
     WRITE = select.EPOLLOUT
+    ERROR = select.EPOLLERR
 
     def __new__(cls, *args, **kwargs):
         global IOLOOP
@@ -35,8 +36,6 @@ class IOLoop:
 
     def __init__(self):
         self.fileno = None
-        self.app = None
-        self.app_processor = None
         self.handler = None
         self.impl = select.epoll()
         # TODO use heapq to sort callbacks by timeout
@@ -78,9 +77,7 @@ class IOLoop:
         return -1
 
     def start(self):
-        while 1:
-            if self.status == STOP:
-                break
+        while self.status == RUNNING:
             next_timeout_callback = self.run_callbacks()
             events = self.impl.poll(next_timeout_callback)  # TODO signals interupt this call??
             log.debug('POOL: %s %s %s', str(int(time.time())), next_timeout_callback, events)
@@ -90,5 +87,4 @@ class IOLoop:
                 self.run_callbacks()
 
     def stop(self):
-        # TODO flush buffers
-        self.status = STOP
+        self.status = STOPPED

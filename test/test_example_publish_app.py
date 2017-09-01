@@ -57,7 +57,7 @@ class TestApplicationPublish:
 
                 bind = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=ch_open2.channel_number)
                 bind_ok = yield self.write(bind)
-                yield self.sleep(1)
+                yield self.sleep(3)
                 for t in range(100):
                     content = "qwe" + str(t)
                     response = yield self.write(amqp_spec.Basic.Publish(exchange_name='message', routing_key='text.tratata', channel_number=channel_number))
