@@ -4,7 +4,8 @@ import sys
 sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
 
 import  logging
-from amqpsfw import amqp_spec, ioloop, application
+from amqpsfw import amqp_spec, ioloop
+from amqpsfw.client.client_application import Client
 from amqpsfw.client.configuration import Configuration
 
 
@@ -15,9 +16,9 @@ init_logger()
 
 class TestApplicationConsumer:
     def test_application_consumer(self):
-        class ConsumerAplication(application.Application):
+        class ConsumerAplication(Client):
             method_mapper = {
-                amqp_spec.Heartbeat: application.Application.on_hearbeat,
+                amqp_spec.Heartbeat: Client.on_hearbeat,
             }
 
             def processor(self):

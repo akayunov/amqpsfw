@@ -3,14 +3,15 @@ import sys
 
 sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
 
-from amqpsfw import amqp_spec, application
+from amqpsfw import amqp_spec
+from amqpsfw.client.client_application import Client
 from amqpsfw.client.configuration import Configuration
 from tornado import ioloop
 
 
 class TestApplicationPublishTornado:
     def test_application_publish_tornado(self):
-        class TornadoAplication(application.Application):
+        class TornadoAplication(Client):
             method_mapper = {}
 
             def processor(self):
