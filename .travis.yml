@@ -7,7 +7,7 @@ services:
 before_install:
   - sudo rabbitmqctl add_user root privetserver
   - sudo rabbitmqctl set_user_tags root administrator
-  - sudo rabbitmqctl set_permissions -p / root conf write read
+  - sudo rabbitmqctl set_permissions -p / root '.*' '.*' '.*'
 install: true
 #  - pip install -e . --use-mirrors
 before_script:
