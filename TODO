@@ -8,4 +8,5 @@
 6)add in log msg file name on callee
 7) add package build
 8) fix /home/akayunov/sfw/sfw/tools/check.sh
-9) ad dtest on each function in code just look at it and DO it!!!
+9) add test on each function in code just look at it and DO it!!!
+10) use pypy, cython
