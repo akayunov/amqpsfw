@@ -16,7 +16,6 @@ log = logging.getLogger(__name__)
 init_logger()
 
 class TestApplicationConsumer:
-    @pytest.mark.skip
     def test_application_consumer(self):
         class ConsumerAplication(application.Application):
             method_mapper = {
