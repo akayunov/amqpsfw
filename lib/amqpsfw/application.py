@@ -1,12 +1,13 @@
 import logging
 import select
-import socket
+
 import time
 from collections import deque
 
 from amqpsfw import amqp_spec
 from amqpsfw.client.configuration import Configuration
 from amqpsfw.logger import init_logger
+from amqpsfw.exceptions import SfwException
 
 
 log = logging.getLogger(__name__)
@@ -26,18 +27,10 @@ class Application:
         self.port = Configuration.port
         self.ioloop = ioloop
         self.status = 'RUNNING'
-        self.processor = self.processor()
-        res = socket.getaddrinfo(self.host, self.port, socket.AF_INET, socket.SOCK_STREAM)
-        af, socktype, proto, canonname, sa = res[0]
-        self.socket = socket.socket(af, socktype, proto)
-        # TODO do connect non blocking
-        self.socket.connect(sa)
-        self.fileno = self.socket.fileno()
-        protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', *Configuration.amqp_version)
-        self.socket.send(protocol_header.encoded)
-        self.socket.setblocking(0)
-        self.ioloop.add_handler(self.socket.fileno(), self.handler, ioloop.READ)
-        self.processor.send(None)
+        self.start()
+
+    def start(self):
+        raise NotImplementedError
 
     def handler(self, fd, event):
         # TODO add more events type
@@ -80,7 +73,7 @@ class Application:
         self.modify_to_write()
 
     def handle_error(self):
-        raise NotImplementedError
+        raise SfwException('Internal', 'Socket error in handle error')
 
     def handle_read(self):
         # TODO if many dat ain buffer then we will be run this cycle while buffe became empty but in case Basic.Ack we need to write it immediatly
