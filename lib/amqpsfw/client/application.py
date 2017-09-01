@@ -97,7 +97,10 @@ class Application:
             log.debug('IN: ' + str(int(time.time())) + ' ' + str(frame))
             response = self.method_handler(frame)
             if response:
-                self.processor.send(response)
+                try:
+                    self.processor.send(response)
+                except StopIteration:
+                    pass
 
     def handle_write(self):
         # TODO use more optimize structure for slice to avoid copping
@@ -113,7 +116,10 @@ class Application:
             self.modify_to_read()
             # TODO move it on namedtuple
             if self.output_buffer[0]:
-                self.processor.send(None)
+                try:
+                    self.processor.send(None)
+                except StopIteration:
+                    pass
             self.output_buffer = [0, b'']
 
     def sleep(self, duration):

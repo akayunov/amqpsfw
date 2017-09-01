@@ -97,7 +97,6 @@ class TestApplicationExceptionPublish:
                 # response = yield self.write(amqp_spec.Channel.Close(channel_number=channel_number))
                 # response = yield self.write(amqp_spec.Connection.Close())
 
-
         def start_aplication():
             io_loop = ioloop.IOLoop()
             PublishAplication(io_loop)
