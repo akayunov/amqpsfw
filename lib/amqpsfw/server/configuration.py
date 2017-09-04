@@ -6,13 +6,14 @@ from amqpsfw.exceptions import SfwException
 
 DEFAULT_CONFIG = {
     'host': 'localhost',
-    'port': 5672,
+    'port': 5555,
     'credential': namedtuple('Credential', ['user', 'password'])('root', 'privetserver'),
     'sals_mechanism': 'PLAIN',
     'amqp_version': (0, 0, 9, 1),
     'heartbeat_interval': 1,
     'logger': {
         'root': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG'),
+        'amqpsfw.server.server': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG'),
         'amqpsfw.ioloop': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG')
     }
 }

@@ -1,11 +1,11 @@
 import logging
 import select
+import socket
 
 import time
 from collections import deque
 
 from amqpsfw import amqp_spec
-from amqpsfw.client.configuration import Configuration
 from amqpsfw.logger import init_logger
 from amqpsfw.exceptions import SfwException
 
@@ -22,22 +22,23 @@ class Application:
         # TODO too many buffers easy to confuse
         self.output_buffer_frames = deque()
         self.output_buffer = [0, b'']
-        self.buffer_in = {'bytes': b'', 'need_to_read': 0}
-        self.host = Configuration.host
-        self.port = Configuration.port
+        self.buffer_in = b''
         self.ioloop = ioloop
         self.status = 'RUNNING'
         self.start()
+
+    def set_config(self, config):
+        self.config = config
 
     def start(self):
         raise NotImplementedError
 
     def handler(self, fd, event):
         # TODO add more events type
-        if event & self.ioloop.READ and self.status == 'RUNNING':
-            self.handle_read()
         if event & self.ioloop.WRITE and self.status == 'RUNNING':
             self.handle_write()
+        if event & self.ioloop.READ and self.status == 'RUNNING':
+            self.handle_read()
         if event & self.ioloop.ERROR:
             self.handle_error()
         # TODO fix it
@@ -76,19 +77,21 @@ class Application:
         raise SfwException('Internal', 'Socket error in handle error')
 
     def handle_read(self):
-        # TODO if many dat ain buffer then we will be run this cycle while buffe became empty but in case Basic.Ack we need to write it immediatly
-        # TODO try to read only one frame in time but it's inefficient
-        # TODO so I need to rethink this handle_read and hanle_write
-        if not self.buffer_in['bytes']:
-            self.buffer_in['bytes'] += self.socket.recv(8)
-        else:
-            self.buffer_in['bytes'] += self.socket.recv(self.buffer_in['need_to_read'])
-        payload_size, frame, _ = amqp_spec.decode_frame(self.buffer_in['bytes'])
-        # TODO handle read known about frame structure - non good for him
-        self.buffer_in['need_to_read'] = payload_size - (len(self.buffer_in['bytes']) - 8)
+        # we cant parse full buffer in one call because if many data in buffer then we will be run this cycle by buffer while buffer became empty
+        # but in case Basic.Ack we need to write response immediatly after get frame
+        # try to read all data and stay non parse yet in buffer to get read event from pool again,
+        # after we've parsed frame - read again to remove frame from socket
+        payload_size, frame, self.buffer_in = amqp_spec.decode_frame(self.buffer_in)
+        log.error('TRY TO READ FROM SOCKET: ' + str(self.socket.fileno()))
+        if not frame:
+            data = self.socket.recv(4096, socket.MSG_PEEK)
+            if not data:
+                self.stop()
+            self.buffer_in += data
+            payload_size, frame, self.buffer_in = amqp_spec.decode_frame(self.buffer_in)
         if frame:
-            self.buffer_in['bytes'] = b''
-            self.buffer_in['need_to_read'] = 0
+            # remove already parsed data, do second read without flag
+            self.socket.recv(payload_size + 8)
             log.debug('IN: ' + str(int(time.time())) + ' ' + str(frame))
             response = self.method_handler(frame)
             if response:
@@ -128,8 +131,8 @@ class Application:
         raise NotImplementedError
 
     def stop(self):
-        self.buffer_in['bytes'] = b''
-        self.buffer_in['need_to_read'] = 0
+        log.debug('Stop application')
+        self.buffer_in = b''
         self.output_buffer_frames = deque()
         self.output_buffer = [0, b'']
         self.status = self.STOPPED
@@ -140,10 +143,9 @@ class Application:
         self.write(amqp_spec.Heartbeat())
 
     def on_connection_start(self, method):
-        self.write(amqp_spec.Connection.StartOk({'host': Configuration.host}, Configuration.sals_mechanism, credential=[Configuration.credential.user, Configuration.credential.password]))
-
+        self.write(amqp_spec.Connection.StartOk({'host': self.config.host}, self.config.sals_mechanism, credential=[self.config.credential.user, self.config.credential.password]))
     def on_connection_tune(self, method):
-        self.write(amqp_spec.Connection.TuneOk(heartbeat_interval=Configuration.heartbeat_interval))
+        self.write(amqp_spec.Connection.TuneOk(heartbeat_interval=self.config.heartbeat_interval))
 
     def on_connection_secure(self, method):
         self.write(amqp_spec.Connection.SecureOk(response='tratata'))

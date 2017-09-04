@@ -35,8 +35,7 @@ class IOLoop:
         return self
 
     def __init__(self):
-        self.fileno = None
-        self.handler = None
+        self.handler = {}
         self.impl = select.epoll()
         # TODO use heapq to sort callbacks by timeout
         self.callbacks = {}
@@ -54,15 +53,15 @@ class IOLoop:
             self.callbacks[when] = [partial(func, *args, **kwargs)]
 
     def add_handler(self, fileno, handler, io_state):
-        self.fileno = fileno
         self.impl.register(fileno, select.EPOLLERR | io_state)
-        self.handler = handler
+        self.handler[fileno] = handler
 
     def update_handler(self, fd, events):
         self.impl.modify(fd, events)
 
-    def unregistered(self):
-        self.impl.unregister(self.fileno)
+    def unregistered(self, fd):
+        del self.handler[fd]
+        self.impl.unregister(fd)
 
     def run_callbacks(self):
         current_time = time.time()
@@ -82,7 +81,7 @@ class IOLoop:
             events = self.impl.poll(next_timeout_callback)  # TODO signals interupt this call??
             log.debug('POOL: %s %s %s', str(int(time.time())), next_timeout_callback, events)
             for fd, event in events:
-                self.handler(self.fileno, event)
+                self.handler[fd](fd, event)
             if not events:
                 self.run_callbacks()
 

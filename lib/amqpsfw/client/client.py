@@ -7,8 +7,9 @@ from amqpsfw.client.configuration import Configuration
 
 class Client(Application):
     def start(self):
+        self.set_config(Configuration)
         self.processor = self.processor()
-        res = socket.getaddrinfo(self.host, self.port, socket.AF_INET, socket.SOCK_STREAM)
+        res = socket.getaddrinfo(self.config.host, self.config.port, socket.AF_INET, socket.SOCK_STREAM)
         af, socktype, proto, canonname, sa = res[0]
         self.socket = socket.socket(af, socktype, proto)
         self.fileno = self.socket.fileno()

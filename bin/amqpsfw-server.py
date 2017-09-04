@@ -3,6 +3,14 @@ import sys
 
 sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
 
-from ..cli import amqpsfw_server
+from amqpsfw.server.server import Server
+from amqpsfw import ioloop
 
-amqpsfw_server.main()
+
+def main():
+    io_loop = ioloop.IOLoop()
+    Server(io_loop)
+    io_loop.start()
+
+if __name__ == '__main__':
+    main()

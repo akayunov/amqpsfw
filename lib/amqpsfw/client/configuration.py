@@ -10,11 +10,11 @@ DEFAULT_CONFIG = {
     'credential': namedtuple('Credential', ['user', 'password'])('root', 'privetserver'),
     'sals_mechanism': 'PLAIN',
     'amqp_version': (0, 0, 9, 1),
-    'heartbeat_interval': 1,
+    'heartbeat_interval': 100,
     'virtual_host': '/',
     'logger': {
         'root': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG'),
-        'amqpsfw.client.application': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG'),
+        'amqpsfw.client.client': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG'),
         'amqpsfw.ioloop': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG')
     }
 }
