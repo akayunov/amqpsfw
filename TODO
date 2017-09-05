@@ -13,3 +13,4 @@
 11) do blocking connection
 12) use memory view on slicing
 13) use cares to async name resolving
+14) add full sasl support
