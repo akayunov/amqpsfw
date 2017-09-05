@@ -25,8 +25,8 @@ class ServerClient(Application):
     def start(self):
         self.set_config(Configuration)
         self.processor = self.processor()
-        res = socket.getaddrinfo(self.config.host, self.config.port, socket.AF_INET, socket.SOCK_STREAM)
-        af, socktype, proto, canonname, sa = res[0]
+        # res = socket.getaddrinfo(self.config.host, self.config.port, socket.AF_INET, socket.SOCK_STREAM)
+        # af, socktype, proto, canonname, sa = res[0]
         # self.socket = socket.socket(af, socktype, proto)
         self.fileno = self.socket.fileno()
         self.ioloop.add_handler(self.socket.fileno(), self.handler, self.ioloop.WRITE)
@@ -41,21 +41,21 @@ class ServerClient(Application):
         self.processor.send(None)
 
     def processor(self):
-        while 1:
-            protocol_header = yield
-            yield self.write(amqp_spec.Connection.Start(0, 9,{},Configuration.sals_mechanism))
-            print(protocol_header)
-
+        yield
 
 class Server(Application):
+    def __init__(self, ioloop, server_aplication):
+        self.connection_application = server_aplication
+        super().__init__(ioloop)
+
     def connection_accept(self, fd, event):
         # TODO add more events type
         if event & self.ioloop.READ and self.status == 'RUNNING':
             global cc
             client_socket, addr = self.socket.accept()
             cc = client_socket
-            log.debug('CLIENT SOCKET: ' + str(client_socket.fileno()) + str(addr))
-            s = ServerClient(self.ioloop, client_socket)
+            log.debug('CLIENT SOCKET ON SERVER SIDE: ' + str(client_socket.fileno()) + str(addr))
+            s = self.connection_application(self.ioloop, client_socket)
         if event & self.ioloop.WRITE and self.status == 'RUNNING':
             self.handle_write()
         if event & self.ioloop.ERROR:
@@ -85,4 +85,4 @@ class Server(Application):
         self.processor.send(None)
 
     def processor(self):
-        yield
+        protocol_header = yield

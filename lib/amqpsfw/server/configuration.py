@@ -12,9 +12,7 @@ DEFAULT_CONFIG = {
     'amqp_version': (0, 0, 9, 1),
     'heartbeat_interval': 1,
     'logger': {
-        'root': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG'),
-        'amqpsfw.server.server': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG'),
-        'amqpsfw.ioloop': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG')
+        # 'amqpsfw.server.server': namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG'),
     }
 }
 

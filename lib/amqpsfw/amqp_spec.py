@@ -1,3 +1,4 @@
+import logging
 from amqpsfw import sasl_spec
 from amqpsfw.amqp_types import (
     AmqpType, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, String,
@@ -6,6 +7,13 @@ from amqpsfw.amqp_types import (
 )
 
 from amqpsfw.exceptions import SfwException
+
+from amqpsfw.logger import init_logger
+from amqpsfw.exceptions import SfwException
+
+
+log = logging.getLogger(__name__)
+init_logger()
 
 
 class Frame:
@@ -261,7 +269,7 @@ class Channel:
     class FlowOk(Method):
         type_structure = [Bit1]
         class_id = 20
-        method_id = 20
+        method_id = 21
 
         def __init__(self, active=1, channel_number=0):
             super().__init__(active=active, channel_number=channel_number)
@@ -554,6 +562,7 @@ def decode_frame(frame_bytes):
         bit_filed_flag = None
         for i in FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value].type_structure:
             if issubclass(i, Reserved):
+                payload_part, payload_bytes = i.decode(payload_bytes)
                 continue
             if issubclass(i, Bit1):
                 bit_filed_flag = i

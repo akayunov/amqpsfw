@@ -81,18 +81,20 @@ class Application:
         # but in case Basic.Ack we need to write response immediatly after get frame
         # try to read all data and stay non parse yet in buffer to get read event from pool again,
         # after we've parsed frame - read again to remove frame from socket
+        # TODO but now we read frame by frame but can read all buffer at one attempt, but it simple
         payload_size, frame, self.buffer_in = amqp_spec.decode_frame(self.buffer_in)
-        log.error('TRY TO READ FROM SOCKET: ' + str(self.socket.fileno()))
         if not frame:
-            data = self.socket.recv(4096, socket.MSG_PEEK)
-            if not data:
+            self.buffer_in = self.socket.recv(4096, socket.MSG_PEEK)
+            if not self.buffer_in:
                 self.stop()
-            self.buffer_in += data
             payload_size, frame, self.buffer_in = amqp_spec.decode_frame(self.buffer_in)
         if frame:
             # remove already parsed data, do second read without flag
-            self.socket.recv(payload_size + 8)
-            log.debug('IN: ' + str(int(time.time())) + ' ' + str(frame))
+            # TODO do it by one read on all frame from buffer to performance
+            frame_data = self.socket.recv(payload_size + 8)
+            if frame_data != frame.encoded:
+                raise SfwException('Internal', 'frame_data is wrong')
+            log.debug(frame)
             response = self.method_handler(frame)
             if response:
                 # TODO why this try here?

@@ -50,7 +50,9 @@ class TestAmqpTypes:
         (LongUint, 12415454), (MessageCount, 12), (LongLongUint, 12414), (LongLongInt, 124), (DeliveryTag, 124124), (Float, 123.142), (Double, 121.4124),
         # TODO (Decimal, decimal.Decimal(12414.12414)),
         (TimeStamp, 1241), (FieldArray, ['qwe', True, 123, {'asd': 1.23}]),
-        (FieldTable, {'host': 'localhost', 'qw': 2.1, 'asf': {'xc': [2, 200, 300, 'qwe', 'a' * 300, 33000, [], 70000, 2147483678, 4294967596]}}), (ReservedShortString, 'asfasf'),
+        (FieldTable, {'host': 'localhost', 'qw': 2.1, 'asf': {'xc': [2, 200, 300, 'qwe', 'a' * 300, 33000, [], 70000, 2147483678, 4294967596]}}),
+        (FieldTable, None),
+        (ReservedShortString, 'asfasf'),
         (ReservedLongString, 'asfsags'), (ReservedBit1, [1]), (ReservedShortUint, 1241)
     ])
     def test_encode_decode_positive(self, types):

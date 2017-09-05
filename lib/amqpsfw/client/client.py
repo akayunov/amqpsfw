@@ -1,8 +1,13 @@
 import socket
-
+import logging
 from amqpsfw.application import Application
 from amqpsfw import amqp_spec
 from amqpsfw.client.configuration import Configuration
+
+from amqpsfw.logger import init_logger
+
+log = logging.getLogger(__name__)
+init_logger()
 
 
 class Client(Application):
@@ -12,6 +17,7 @@ class Client(Application):
         res = socket.getaddrinfo(self.config.host, self.config.port, socket.AF_INET, socket.SOCK_STREAM)
         af, socktype, proto, canonname, sa = res[0]
         self.socket = socket.socket(af, socktype, proto)
+        log.debug('CLIENT SOCKET ON CLIENT SIDE: ' + str(self.socket.fileno()) + str(sa))
         self.fileno = self.socket.fileno()
         self.ioloop.add_handler(self.socket.fileno(), self.handler, self.ioloop.WRITE)
         self.socket.setblocking(0)

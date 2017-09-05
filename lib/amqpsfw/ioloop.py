@@ -79,8 +79,8 @@ class IOLoop:
         while self.status == RUNNING:
             next_timeout_callback = self.run_callbacks()
             events = self.impl.poll(next_timeout_callback)  # TODO signals interupt this call??
-            log.debug('POOL: %s %s %s', str(int(time.time())), next_timeout_callback, events)
             for fd, event in events:
+                log.debug('POOL: %s %s %s', next_timeout_callback, fd, 'write' if event & self.WRITE else 'read' if event & self.READ else event)
                 self.handler[fd](fd, event)
             if not events:
                 self.run_callbacks()
