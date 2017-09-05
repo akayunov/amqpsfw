@@ -1,5 +1,3 @@
-from functools import partial
-import time
 import os
 import sys
 import socket
@@ -34,12 +32,10 @@ class TestAmqpSpec:
             app.csock.send(data.encoded)
             app.handle_read()
             expected.append(data)
-            time.sleep(0.01)
             data = amqp_spec.Content('qwe' + str(i))
             app.csock.send(data.encoded)
             app.handle_read()
             expected.append(data)
-            time.sleep(0.01)
         assert expected == app.result
 
     def test_handle_read_bunch(self):
