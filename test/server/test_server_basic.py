@@ -100,6 +100,7 @@ class TestServer:
                     content = "qwe" + str(t)
                     response = yield
                     print(response)
+                yield self.stop()
 
         io_loop = ioloop.IOLoop()
         Server(io_loop, ServerAplication)
