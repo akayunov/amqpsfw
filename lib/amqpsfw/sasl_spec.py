@@ -15,7 +15,6 @@ class Plain(AmqpType):
         sasl_string, binary_data = LongString.decode(binary_data)
         string_array = []
         string = ''
-        # TODO add iterable protocol to do like: for current_byte in sasl_string
         for current_byte in sasl_string.decoded_value:
             if current_byte == '\x00':
                 if string:
@@ -24,6 +23,5 @@ class Plain(AmqpType):
             else:
                 string += current_byte
         string_array.append(string)
-        # string_array = [s.decode('utf8') for s in string_array]
         return cls(string_array), binary_data
 
