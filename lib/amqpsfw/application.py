@@ -6,12 +6,18 @@ import time
 from collections import deque
 
 from amqpsfw import amqp_spec
-from amqpsfw.logger import init_logger
 from amqpsfw.exceptions import SfwException
 
 
+amqpsfw_logger = logging.getLogger('amqpsfw')
+log_handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(module)s.py.%(funcName)s:%(lineno)d - %(message)s')
+log_handler.setFormatter(formatter)
+amqpsfw_logger.addHandler(log_handler)
+amqpsfw_logger.setLevel(logging.DEBUG)
+
+
 log = logging.getLogger(__name__)
-init_logger()
 
 
 class Application:

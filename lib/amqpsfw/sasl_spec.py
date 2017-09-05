@@ -24,4 +24,3 @@ class Plain(AmqpType):
                 string += current_byte
         string_array.append(string)
         return cls(string_array), binary_data
-

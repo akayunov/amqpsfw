@@ -10,7 +10,8 @@ DEFAULT_CONFIG = {
     'credential': namedtuple('Credential', ['user', 'password'])('root', 'privetserver'),
     'sals_mechanism': 'PLAIN',
     'amqp_version': (0, 0, 9, 1),
-    'heartbeat_interval': 1
+    'heartbeat_interval': 1,
+    'log_level': 'DEBUG'
 }
 
 
