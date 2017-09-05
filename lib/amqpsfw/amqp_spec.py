@@ -43,7 +43,10 @@ class Frame:
                 bit_field.append(arg_value)
                 continue
             if bit_field:
-                self.payload += bit_type(bit_field)
+                try:
+                    self.payload += bit_type(bit_field)
+                except Exception:
+                    raise SfwException('Internal', 'Wrong "' + str(bit_field) + '" value for ' + str(bit_type.__name__) + ' object/method')
                 bit_field = []
                 bit_type = None
             try:
@@ -51,7 +54,10 @@ class Frame:
             except Exception:
                 raise SfwException('Internal', 'Wrong "' + arg_name + '" value for ' + str(type(self).__name__) + ' object/method')
         if bit_field:
-            self.payload += bit_type(bit_field)
+            try:
+                self.payload += bit_type(bit_field)
+            except Exception:
+                raise SfwException('Internal', 'Wrong "' + str(bit_field) + '" value for ' + str(bit_type.__name__) + ' object/method')
 
     @property
     def encoded(self):
