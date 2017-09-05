@@ -12,7 +12,6 @@ from amqpsfw import amqp_spec, sasl_spec
 class TestAmqpSpec:
     def test_len(self):
         tune = amqp_spec.Connection.Tune(channel_max=12, frame_max=13, heartbeat_interval=60, channel_number=0)
-        print(tune.encoded)
         assert len(tune) == 1 + 2 + 4 + 2 + 2 + 2 + 4 + 2 + 1
 
     def test_protocol_header(self):

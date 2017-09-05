@@ -11,10 +11,7 @@ DEFAULT_CONFIG = {
     'sals_mechanism': 'PLAIN',
     'amqp_version': (0, 0, 9, 1),
     'heartbeat_interval': 100,
-    'virtual_host': '/',
-    'logger': {
-        # None: namedtuple('LoggerProperties', ['handler', 'level'])('StreamHandler', 'DEBUG'),
-    }
+    'virtual_host': '/'
 }
 
 

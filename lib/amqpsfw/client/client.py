@@ -1,14 +1,10 @@
-import socket
 import logging
+import socket
 from amqpsfw.application import Application
 from amqpsfw import amqp_spec
 from amqpsfw.client.configuration import Configuration
 
-from amqpsfw.logger import init_logger
-
 log = logging.getLogger(__name__)
-init_logger()
-
 
 class Client(Application):
     def start(self):

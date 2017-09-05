@@ -1,13 +1,11 @@
 from collections import deque
 import logging
 import socket
-from amqpsfw import amqp_spec
+
 from amqpsfw.application import Application
 from amqpsfw.server.configuration import Configuration
-from amqpsfw.logger import init_logger
 
 log = logging.getLogger(__name__)
-init_logger()
 
 cc = None
 

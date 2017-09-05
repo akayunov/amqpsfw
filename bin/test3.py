@@ -2,12 +2,10 @@ import os.path
 import sys
 
 sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
-
-import logging
 from amqpsfw import amqp_spec, ioloop
 from amqpsfw.server.server import Server, ServerClient
 from amqpsfw.client.client import Client
-from amqpsfw.logger import init_logger
+
 
 from amqpsfw.client.configuration import Configuration as CConf
 from amqpsfw.server.configuration import Configuration as SConf
@@ -96,7 +94,6 @@ class ServerAplication(ServerClient):
         for t in range(100):
             content = "qwe" + str(t)
             response = yield
-            print(response)
 
 
 io_loop = ioloop.IOLoop()

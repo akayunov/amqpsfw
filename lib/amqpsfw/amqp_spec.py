@@ -1,19 +1,10 @@
-import logging
 from amqpsfw import sasl_spec
 from amqpsfw.amqp_types import (
     AmqpType, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, String,
     LongLongUint, ExchangeName, QueueName, MessageCount, HeaderProperty, ConsumerTag, DeliveryTag,
     Bit5, Bit1, Bit2, Bit4, Reserved, ReservedShortString, ReservedBit1, ReservedShortUint, ReservedLongString, ShortShortUint
 )
-
 from amqpsfw.exceptions import SfwException
-
-from amqpsfw.logger import init_logger
-from amqpsfw.exceptions import SfwException
-
-
-log = logging.getLogger(__name__)
-init_logger()
 
 
 class Frame:
