@@ -9,12 +9,11 @@ log = logging.getLogger(__name__)
 
 class Client(Application):
     def start(self):
-        self.app_gen = self.processor()
         res = socket.getaddrinfo(self.config.host, self.config.port, socket.AF_INET, socket.SOCK_STREAM)
         af, socktype, proto, canonname, sa = res[0]
         self.socket = socket.socket(af, socktype, proto)
-        log.debug('CLIENT SOCKET ON CLIENT SIDE: ' + str(self.socket.fileno()) + str(sa))
-        self.fileno = self.socket.fileno()
+        log.debug('Client socket on client side: ' + str(self.socket.fileno()) + str(sa))
+        self.app_gen = self.processor()
         self.ioloop.add_handler(self.socket.fileno(), self.handler, self.WRITE)
         self.socket.setblocking(0)
         try:
