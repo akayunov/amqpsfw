@@ -106,7 +106,7 @@ class Application:
             if not self.buffer_in:
                 self.stop()
             payload_size, frame, self.buffer_in = amqp_spec.decode_frame(self.buffer_in)
-        else:
+        if frame:
             # remove already parsed data, do second read without flag
             # TODO do it by one read on all frame from buffer to performance
             self.socket.recv(payload_size + 8)
