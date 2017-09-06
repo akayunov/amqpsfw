@@ -66,7 +66,7 @@ class TestApplicationExceptionPublish:
 
                 # exception part
                 con = amqp_spec.Content(content=content, channel_number=channel_number)
-                con.encoded = bytes([1,2,3])
+                con.payload = b''
                 response = yield self.write(con)
                 for x in range(100):
                     content = 'qwe' + str(x)

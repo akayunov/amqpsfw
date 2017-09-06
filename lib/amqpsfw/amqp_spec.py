@@ -15,13 +15,11 @@ class Frame:
     dont_wait_response = 0
 
     def __init__(self, channel_number=0, **kwargs):
-        self._encoded = b''
         self.payload = AmqpType('')
         self.set_payload(**kwargs)
         self.channel_number = channel_number
         if type(channel_number) != int or not (65535 > channel_number >= 0):
             raise SfwException('Internal', 'Wrong channel number, must be int in [0 .. 65535]')
-        self.encoded = (ShortShortUint(self.frame_type) + ShortUint(channel_number) + LongUint(len(self.payload)) + self.payload).encoded
         if not self.frame_params:
             type(self).frame_params = ['channel_number'] + list(filter(lambda x: not (x.startswith('reserved') or x in ['method_method_id', 'method_class_id']), kwargs.keys()))
 
@@ -52,11 +50,7 @@ class Frame:
 
     @property
     def encoded(self):
-        return self._encoded + self.frame_end.encoded
-
-    @encoded.setter
-    def encoded(self, value):
-        self._encoded = value
+        return (ShortShortUint(self.frame_type) + ShortUint(self.channel_number) + LongUint(len(self.payload)) + self.payload + self.frame_end).encoded
 
     def __str__(self):
         return str(type(self)) + ' ' + ', '.join([str(k) + '=' + str(getattr(self, k)) for k in self.frame_params])
@@ -68,7 +62,7 @@ class Frame:
             return False
 
     def __len__(self):
-        return len(self.payload) + 1 + 2 + 4 + 1
+        return len(self.payload) + 8
 
 
 class ProtocolHeader(Frame):
@@ -86,7 +80,10 @@ class ProtocolHeader(Frame):
         self.v3 = v3
         self.v4 = v4
         self.set_payload(c1=c1, c2=c2, c3=c3, c4=c4, v1=v1, v2=v2, v3=v3, v4=v4)
-        self.encoded = self.payload.encoded
+
+    @property
+    def encoded(self):
+        return self.payload.encoded
 
     def __len__(self):
         return 8
