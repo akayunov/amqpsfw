@@ -2,23 +2,18 @@ from collections import deque
 import logging
 import socket
 
-from amqpsfw.application import Application
+from amqpsfw.application import Application, OutputBuffer
 from amqpsfw.server.configuration import Configuration
 
 log = logging.getLogger(__name__)
 
 cc = None
 
+
 class ServerClient(Application):
     def __init__(self, ioloop, socket=None):
-        # TODO too many buffers easy to confuse
-        self.output_buffer_frames = deque()
-        self.output_buffer = [0, b'']
-        self.buffer_in = b''
-        self.ioloop = ioloop
-        self.status = 'RUNNING'
         self.socket = socket
-        self.start()
+        super().__init__(ioloop)
 
     def start(self):
         self.set_config(Configuration)

@@ -20,14 +20,26 @@ amqpsfw_logger.setLevel(logging.DEBUG)
 log = logging.getLogger(__name__)
 
 
+class OutputBuffer:
+    def __init__(self):
+        self.frame_queue = deque()
+        self.current_frame_bytes = b''
+        self.dont_wait_response = 0
+
+    def clear(self):
+        self.current_frame_bytes = b''
+        self.dont_wait_response = 0
+
+    def append_frame(self, x):
+        self.frame_queue.append(x)
+
+
 class Application:
     STOPPED = 'STOPPPED'
     RUNNING = 'RUNNING'
 
     def __init__(self, ioloop):
-        # TODO too many buffers easy to confuse
-        self.output_buffer_frames = deque()
-        self.output_buffer = [0, b'']
+        self.output_buffer = OutputBuffer()
         self.buffer_in = b''
         self.ioloop = ioloop
         self.status = 'RUNNING'
@@ -76,7 +88,7 @@ class Application:
         self.ioloop.update_handler(self.fileno, events)
 
     def write(self, value):
-        self.output_buffer_frames.append(value)
+        self.output_buffer.append_frame(value)
         self.modify_to_write()
 
     def handle_error(self):
@@ -111,24 +123,28 @@ class Application:
 
     def handle_write(self):
         # TODO use more optimize structure for slice to avoid copping
-        if len(self.output_buffer_frames) > 0 and not self.output_buffer[1]:
-            last_frame = self.output_buffer_frames.pop()
-            self.output_buffer = [last_frame.dont_wait_response, b''.join([i.encoded for i in self.output_buffer_frames]) + last_frame.encoded]
-            self.output_buffer_frames = deque()
-            log.debug('OUT:' + str(int(time.time())) + ' ' + str(last_frame))
-        if self.output_buffer[1]:
-            writed_bytes = self.socket.send(self.output_buffer[1])
-            self.output_buffer[1] = self.output_buffer[1][writed_bytes:]
-        if not self.output_buffer[1] and not len(self.output_buffer_frames):
+        if len(self.output_buffer.frame_queue) > 0 and not self.output_buffer.current_frame_bytes:
+            self.output_buffer.dont_wait_response = self.output_buffer.frame_queue[-1].dont_wait_response
+            # if self.output_buffer.dont_wait_response:
+            #     import pdb;
+            #     pdb.set_trace()
+            for frame in self.output_buffer.frame_queue:
+                log.debug('OUT:' + str(frame))
+                self.output_buffer.current_frame_bytes += frame.encoded
+            self.output_buffer.frame_queue = deque()
+        if self.output_buffer.current_frame_bytes:
+            writed_bytes = self.socket.send(self.output_buffer.current_frame_bytes)
+            self.output_buffer.current_frame_bytes = self.output_buffer.current_frame_bytes[writed_bytes:]
+        if not self.output_buffer.current_frame_bytes and not len(self.output_buffer.frame_queue):
             self.modify_to_read()
             # TODO move it on namedtuple
-            if self.output_buffer[0]:
+            if self.output_buffer.dont_wait_response:
                 # TODO why this try here?
                 try:
                     self.processor.send(None)
                 except StopIteration:
                     pass
-            self.output_buffer = [0, b'']
+            self.output_buffer.clear()
 
     def sleep(self, duration):
         self.modify_to_write()
@@ -141,8 +157,7 @@ class Application:
     def stop(self):
         log.debug('Stop application')
         self.buffer_in = b''
-        self.output_buffer_frames = deque()
-        self.output_buffer = [0, b'']
+        self.output_buffer.clear()
         self.status = self.STOPPED
         self.ioloop.stop()
         self.socket.close()
