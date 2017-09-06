@@ -2,7 +2,7 @@ from collections import deque
 import logging
 import socket
 
-from amqpsfw.application import Application, OutputBuffer
+from amqpsfw.application import Application
 from amqpsfw.server.configuration import Configuration
 
 log = logging.getLogger(__name__)

@@ -9,8 +9,8 @@ from amqpsfw.client.configuration import Configuration
 from tornado import ioloop
 
 
-class TestApplicationPublishTornado:
-    def test_application_publish_tornado(self):
+class TestClientPublishTornado:
+    def test_client_publish_tornado(self):
         class TornadoAplication(Client):
             method_mapper = {}
 

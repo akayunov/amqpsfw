@@ -8,8 +8,8 @@ from amqpsfw.client.client import Client
 from amqpsfw.client.configuration import Configuration
 
 
-class TestApplicationPublish:
-    def test_application_publish_simple(self):
+class TestClientPublish:
+    def test_client_publish_simple(self):
         class PublishAplication(Client):
             method_mapper = {}
 

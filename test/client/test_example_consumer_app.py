@@ -8,8 +8,8 @@ from amqpsfw.client.client import Client
 from amqpsfw.client.configuration import Configuration
 
 
-class TestApplicationConsumer:
-    def test_application_consumer(self):
+class TestClientConsumer:
+    def test_client_consumer(self):
         class ConsumerAplication(Client):
             method_mapper = {
                 amqp_spec.Heartbeat: Client.on_hearbeat,

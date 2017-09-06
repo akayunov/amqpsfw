@@ -7,8 +7,8 @@ from amqpsfw import amqp_spec, ioloop
 from amqpsfw.client.client import Client
 from amqpsfw.client.configuration import Configuration
 
-class TestApplicationExceptionPublish:
-    def test_application_exception_publish(self):
+class TestClientExceptionPublish:
+    def test_client_exception_publish(self):
         class PublishAplication(Client):
             method_mapper = {}
 

@@ -8,8 +8,8 @@ from amqpsfw.client.client import Client
 from amqpsfw.client.configuration import Configuration
 
 
-class TestApplicationPublish:
-    def test_application_publish_callback(self):
+class TestClientPublish:
+    def test_client_publish_callback(self):
         class PublishAplication(Client):
             def processor(self):
                 channel_number = 1

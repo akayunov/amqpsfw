@@ -20,7 +20,7 @@ amqpsfw_logger.setLevel(logging.DEBUG)
 log = logging.getLogger(__name__)
 
 
-class OutputBuffer:
+class BufferOut:
     def __init__(self):
         self.frame_queue = deque()
         self.current_frame_bytes = b''
@@ -34,13 +34,22 @@ class OutputBuffer:
         self.frame_queue.append(x)
 
 
+class BufferIn:
+    def __init__(self):
+        self.frame_bytes = b''
+        self.parsed_data_size = 0
+
+    def clear(self):
+        self.__init__()
+
+
 class Application:
     STOPPED = 'STOPPPED'
     RUNNING = 'RUNNING'
 
     def __init__(self, ioloop):
-        self.output_buffer = OutputBuffer()
-        self.buffer_in = b''
+        self.buffer_out = BufferOut()
+        self.buffer_in = BufferIn()
         self.ioloop = ioloop
         self.status = 'RUNNING'
         self.start()
@@ -88,7 +97,7 @@ class Application:
         self.ioloop.update_handler(self.fileno, events)
 
     def write(self, value):
-        self.output_buffer.append_frame(value)
+        self.buffer_out.append_frame(value)
         self.modify_to_write()
 
     def handle_error(self):
@@ -100,16 +109,21 @@ class Application:
         # try to read all data and stay non parse yet in buffer to get read event from pool again,
         # after we've parsed frame - read again to remove frame from socket
         # TODO but now we read frame by frame but can read all buffer at one attempt, but it simple
-        payload_size, frame, self.buffer_in = amqp_spec.decode_frame(self.buffer_in)
+        payload_size, frame, self.buffer_in.frame_bytes = amqp_spec.decode_frame(self.buffer_in.frame_bytes)
         if not frame:
-            self.buffer_in = self.socket.recv(4096, socket.MSG_PEEK)
-            if not self.buffer_in:
+            self.buffer_in.frame_bytes = self.socket.recv(4096, socket.MSG_PEEK)
+            if not self.buffer_in.frame_bytes:
                 self.stop()
-            payload_size, frame, self.buffer_in = amqp_spec.decode_frame(self.buffer_in)
+            payload_size, frame, self.buffer_in.frame_bytes = amqp_spec.decode_frame(self.buffer_in.frame_bytes)
         if frame:
             # remove already parsed data, do second read without flag
             # TODO do it by one read on all frame from buffer to performance
             self.socket.recv(payload_size + 8)
+            # import pdb;pdb.set_trace()
+            # if self.buffer_in.parsed_data_size:
+            #     self.socket.recv(self.buffer_in.parsed_data_size)
+            #     self.buffer_in.clear()
+            self.buffer_in.parsed_data_size += payload_size + 8
             log.debug(frame)
             response = self.method_handler(frame)
             if response:
@@ -121,24 +135,24 @@ class Application:
 
     def handle_write(self):
         # TODO use more optimize structure for slice to avoid copping
-        if len(self.output_buffer.frame_queue) > 0 and not self.output_buffer.current_frame_bytes:
-            self.output_buffer.dont_wait_response = self.output_buffer.frame_queue[-1].dont_wait_response
-            for frame in self.output_buffer.frame_queue:
+        if len(self.buffer_out.frame_queue) > 0 and not self.buffer_out.current_frame_bytes:
+            self.buffer_out.dont_wait_response = self.buffer_out.frame_queue[-1].dont_wait_response
+            for frame in self.buffer_out.frame_queue:
                 log.debug('OUT:' + str(frame))
-                self.output_buffer.current_frame_bytes += frame.encoded
-            self.output_buffer.frame_queue.clear()
-        if self.output_buffer.current_frame_bytes:
-            writed_bytes = self.socket.send(self.output_buffer.current_frame_bytes)
-            self.output_buffer.current_frame_bytes = self.output_buffer.current_frame_bytes[writed_bytes:]
-        if not self.output_buffer.current_frame_bytes and not len(self.output_buffer.frame_queue):
+                self.buffer_out.current_frame_bytes += frame.encoded
+            self.buffer_out.frame_queue.clear()
+        if self.buffer_out.current_frame_bytes:
+            writed_bytes = self.socket.send(self.buffer_out.current_frame_bytes)
+            self.buffer_out.current_frame_bytes = self.buffer_out.current_frame_bytes[writed_bytes:]
+        if not self.buffer_out.current_frame_bytes and not len(self.buffer_out.frame_queue):
             self.modify_to_read()
-            if self.output_buffer.dont_wait_response:
+            if self.buffer_out.dont_wait_response:
                 # TODO why this try here?
                 try:
                     self.processor.send(None)
                 except StopIteration:
                     pass
-            self.output_buffer.clear()
+            self.buffer_out.clear()
 
     def sleep(self, duration):
         self.modify_to_write()
@@ -150,8 +164,8 @@ class Application:
 
     def stop(self):
         log.debug('Stop application')
-        self.buffer_in = b''
-        self.output_buffer.clear()
+        self.buffer_in.clear()
+        self.buffer_out.clear()
         self.status = self.STOPPED
         self.ioloop.stop()
         self.socket.close()
