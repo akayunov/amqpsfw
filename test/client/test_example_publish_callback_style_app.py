@@ -5,7 +5,6 @@ sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'
 
 from amqpsfw import amqp_spec, ioloop
 from amqpsfw.client.client import Client
-from amqpsfw.client.configuration import Configuration
 
 
 class TestClientPublish:
@@ -15,7 +14,7 @@ class TestClientPublish:
                 channel_number = 1
                 yield from super().processor()
 
-                c_open = amqp_spec.Connection.Open(virtual_host=Configuration.virtual_host)
+                c_open = amqp_spec.Connection.Open(virtual_host=self.config.virtual_host)
                 openok = yield self.write(c_open)
 
                 # channel_obj = amqp_spec.Channel()

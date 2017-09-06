@@ -3,7 +3,7 @@ import logging
 import socket
 
 from amqpsfw.application import Application
-from amqpsfw.server.configuration import Configuration
+from amqpsfw.configuration import Configuration
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class Server(Application):
         if event & self.WRITE and self.status == 'RUNNING':
             self.handle_write()
         if event & self.ERROR:
-            self.handle_error()
+            self.handle_error(fd)
 
     def start(self):
         self.set_config(Configuration)

@@ -2,13 +2,13 @@ import logging
 import socket
 from amqpsfw.application import Application
 from amqpsfw import amqp_spec
-from amqpsfw.client.configuration import Configuration
+from amqpsfw.configuration import Configuration
 
 log = logging.getLogger(__name__)
 
+
 class Client(Application):
     def start(self):
-        self.set_config(Configuration)
         self.app_gen = self.processor()
         res = socket.getaddrinfo(self.config.host, self.config.port, socket.AF_INET, socket.SOCK_STREAM)
         af, socktype, proto, canonname, sa = res[0]

@@ -8,26 +8,23 @@ from amqpsfw.server.server import Server, ServerClient
 from amqpsfw.client.client import Client
 
 
-from amqpsfw.client.configuration import Configuration as CConf
-from amqpsfw.server.configuration import Configuration as SConf
-
 class TestServer:
     def test_server_basic(self):
         class ClientPublishAplication(Client):
             method_mapper = {}
 
-            CConf.port = 5555
+            self.config.port = 5555
             def processor(self):
                 channel_number = 1
                 start = yield from super().processor()
-                start_ok = amqp_spec.Connection.StartOk({'host': CConf.host}, CConf.sals_mechanism, credential=[CConf.credential.user, CConf.credential.password])
+                start_ok = amqp_spec.Connection.StartOk({'host': self.config.host}, self.config.sals_mechanism, credential=[self.config.credential.user, self.config.credential.password])
                 tune = yield self.write(start_ok)
 
-                tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=CConf.heartbeat_interval)
+                tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=self.config.heartbeat_interval)
                 # yield self.write(tune_ok)  # it works too!!!! and frame must be send to server
                 self.write(tune_ok)  # it works too!!!! and frame will be send to server on next yield
 
-                c_open = amqp_spec.Connection.Open(virtual_host=CConf.virtual_host)
+                c_open = amqp_spec.Connection.Open(virtual_host=self.config.virtual_host)
                 openok = yield self.write(c_open)
 
                 # channel_obj = amqp_spec.Channel()
@@ -66,15 +63,15 @@ class TestServer:
         class ServerAplication(ServerClient):
             method_mapper = {}
 
-            SConf.port = 5555
+            self.config.port = 5555
             def processor(self):
                 channel_number = 1
                 yield from super().processor()
                 # import pdb;pdb.set_trace()
-                start = amqp_spec.Connection.Start(0, 9, {'host': SConf.host}, SConf.sals_mechanism)
+                start = amqp_spec.Connection.Start(0, 9, {'host': self.config.host}, self.config.sals_mechanism)
                 start_ok = yield self.write(start)
 
-                tune = amqp_spec.Connection.Tune(heartbeat_interval=SConf.heartbeat_interval)
+                tune = amqp_spec.Connection.Tune(heartbeat_interval=self.config.heartbeat_interval)
                 # yield self.write(tune_ok)  # it works too!!!! and frame must be send to server
                 tune_ok = yield self.write(tune)  # it works too!!!! and frame will be send to server on next yield
                 conn_open = yield

@@ -6,6 +6,7 @@ from collections import deque
 
 from amqpsfw import amqp_spec
 from amqpsfw.exceptions import SfwException
+from amqpsfw.configuration import Configuration
 
 amqpsfw_logger = logging.getLogger('amqpsfw')
 log_handler = logging.StreamHandler()
@@ -48,6 +49,7 @@ class Application:
     ERROR = (select.EPOLLERR | select.EPOLLPRI | select.EPOLLHUP | select.EPOLLRDHUP | select.EPOLLRDBAND | select.EPOLLWRBAND)
 
     def __init__(self, ioloop, app_socket=None):
+        self.config = Configuration
         self.buffer_out = BufferOut()
         self.buffer_in = BufferIn()
         self.ioloop = ioloop
@@ -55,9 +57,6 @@ class Application:
         self.socket = app_socket
         self.app_gen = self.processor()
         self.start()
-
-    def set_config(self, config):
-        self.config = config
 
     def start(self):
         raise NotImplementedError
@@ -69,7 +68,7 @@ class Application:
         if event & self.READ and self.status == 'RUNNING':
             self.handle_read()
         if event & self.ERROR:
-            self.handle_error()
+            self.handle_error(fd)
 
     def modify_to_read(self):
         events = select.EPOLLIN | select.EPOLLERR | select.EPOLLPRI | select.EPOLLRDBAND | select.EPOLLHUP | select.EPOLLRDHUP
@@ -83,9 +82,9 @@ class Application:
         self.buffer_out.append_frame(value)
         self.modify_to_write()
 
-    def handle_error(self):
+    def handle_error(self, fd):
         self.stop()
-        raise SfwException('Internal', 'Socket error in handle error')
+        raise SfwException('Internal', 'Socket error in handle error on: ' + str(fd))
 
     def handle_read(self):
         # we cant parse full buffer in one call because if many data in buffer then we will be run this cycle by buffer while buffer became empty
