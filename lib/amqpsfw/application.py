@@ -126,13 +126,12 @@ class Application:
             for frame in self.output_buffer.frame_queue:
                 log.debug('OUT:' + str(frame))
                 self.output_buffer.current_frame_bytes += frame.encoded
-            self.output_buffer.frame_queue = deque()
+            self.output_buffer.frame_queue.clear()
         if self.output_buffer.current_frame_bytes:
             writed_bytes = self.socket.send(self.output_buffer.current_frame_bytes)
             self.output_buffer.current_frame_bytes = self.output_buffer.current_frame_bytes[writed_bytes:]
         if not self.output_buffer.current_frame_bytes and not len(self.output_buffer.frame_queue):
             self.modify_to_read()
-            # TODO move it on namedtuple
             if self.output_buffer.dont_wait_response:
                 # TODO why this try here?
                 try:
