@@ -106,12 +106,10 @@ class Application:
             if not self.buffer_in:
                 self.stop()
             payload_size, frame, self.buffer_in = amqp_spec.decode_frame(self.buffer_in)
-        if frame:
+        else:
             # remove already parsed data, do second read without flag
             # TODO do it by one read on all frame from buffer to performance
-            frame_data = self.socket.recv(payload_size + 8)
-            if frame_data != frame.encoded:
-                raise SfwException('Internal', 'frame_data is wrong')
+            self.socket.recv(payload_size + 8)
             log.debug(frame)
             response = self.method_handler(frame)
             if response:
@@ -125,9 +123,6 @@ class Application:
         # TODO use more optimize structure for slice to avoid copping
         if len(self.output_buffer.frame_queue) > 0 and not self.output_buffer.current_frame_bytes:
             self.output_buffer.dont_wait_response = self.output_buffer.frame_queue[-1].dont_wait_response
-            # if self.output_buffer.dont_wait_response:
-            #     import pdb;
-            #     pdb.set_trace()
             for frame in self.output_buffer.frame_queue:
                 log.debug('OUT:' + str(frame))
                 self.output_buffer.current_frame_bytes += frame.encoded
