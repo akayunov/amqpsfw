@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from amqpsfw import sasl_spec
 from amqpsfw.amqp_types import (
     AmqpType, ShortUint, LongUint, FieldTable, ShortString, LongString, Char, Path, String,
@@ -16,41 +17,35 @@ class Frame:
 
     def __init__(self, channel_number=0, **kwargs):
         self.payload = AmqpType('')
-        self.set_payload(**kwargs)
+        self.set_payload(kwargs)
         self.channel_number = channel_number
         if type(channel_number) != int or not (65535 > channel_number >= 0):
             raise SfwException('Internal', 'Wrong channel number, must be int in [0 .. 65535]')
         if not self.frame_params:
-            type(self).frame_params = ['channel_number'] + list(filter(lambda x: not (x.startswith('reserved') or x in ['method_method_id', 'method_class_id']), kwargs.keys()))
+            self.set_frame_params(kwargs)
 
-    def set_payload(self, **kwargs):
-        bit_field = []
-        bit_type = None
+    def set_payload(self, kwargs):
         for arg_name, arg_value, arg_type in zip(kwargs.keys(), kwargs.values(), self.type_structure):
             if issubclass(arg_type, Bit1):
-                bit_type = arg_type
-                bit_field.append(arg_value)
-                continue
-            if bit_field:
-                try:
-                    self.payload += bit_type(bit_field)
-                except Exception:
-                    raise SfwException('Internal', 'Wrong "' + str(bit_field) + '" value for ' + str(bit_type.__name__) + ' object/method')
-                bit_field = []
-                bit_type = None
+                arg_value = list(arg_value.values())
             try:
                 self.payload += arg_type(arg_value)
             except Exception:
                 raise SfwException('Internal', 'Wrong "' + arg_name + '" value for ' + str(type(self).__name__) + ' object/method')
-        if bit_field:
-            try:
-                self.payload += bit_type(bit_field)
-            except Exception:
-                raise SfwException('Internal', 'Wrong "' + str(bit_field) + '" value for ' + str(bit_type.__name__) + ' object/method')
 
     @property
     def encoded(self):
         return (ShortShortUint(self.frame_type) + ShortUint(self.channel_number) + LongUint(len(self.payload)) + self.payload + self.frame_end).encoded
+
+    def set_frame_params(self, kwargs):
+        type(self).frame_params = ['channel_number']
+        for key in kwargs:
+            if key.startswith('reserved') or key in ['method_method_id', 'method_class_id']:
+                continue
+            if type(kwargs[key]) is not OrderedDict:
+                type(self).frame_params.append(key)
+            else:
+                type(self).frame_params.extend([i for i in kwargs[key].keys() if not i.startswith('reserved')])
 
     def __str__(self):
         return str(type(self)) + ' ' + ', '.join([str(k) + '=' + str(getattr(self, k)) for k in self.frame_params])
@@ -79,7 +74,7 @@ class ProtocolHeader(Frame):
         self.v2 = v2
         self.v3 = v3
         self.v4 = v4
-        self.set_payload(c1=c1, c2=c2, c3=c3, c4=c4, v1=v1, v2=v2, v3=v3, v4=v4)
+        self.set_payload({'c1': c1, 'c2': c2, 'c3': c3, 'c4': c4, 'v1': v1, 'v2': v2, 'v3': v3, 'v4': v4})
 
     @property
     def encoded(self):
@@ -204,7 +199,7 @@ class Connection:
         method_id = 40
 
         def __init__(self, virtual_host='/', channel_number=0):
-            super().__init__(virtual_host=virtual_host, reserved='', reserved1=0, channel_number=channel_number)
+            super().__init__(virtual_host=virtual_host, reserved='', bit1=OrderedDict(reserved1=0), channel_number=channel_number)
             self.virtual_host = virtual_host
 
     class OpenOk(Method):
@@ -257,7 +252,7 @@ class Channel:
         method_id = 20
 
         def __init__(self, active=1, channel_number=0):
-            super().__init__(active=active, channel_number=channel_number)
+            super().__init__(bit1=OrderedDict(active=active), channel_number=channel_number)
             self.active = active
 
     class FlowOk(Method):
@@ -266,7 +261,7 @@ class Channel:
         method_id = 21
 
         def __init__(self, active=1, channel_number=0):
-            super().__init__(active=active, channel_number=channel_number)
+            super().__init__(bit1=OrderedDict(active=active), channel_number=channel_number)
             self.active = active
 
     class Close(Method):
@@ -289,15 +284,15 @@ class Channel:
 
 class Exchange:
     class Declare(Method):
-        # TODO avoid duplicate bits type
-        type_structure = [ReservedShortUint, ExchangeName, ShortString, Bit5, Bit5, Bit5, Bit5, Bit5, FieldTable]
+        type_structure = [ReservedShortUint, ExchangeName, ShortString, Bit5, FieldTable]
         class_id = 40
         method_id = 10
 
         def __init__(self, exchange_name, exchange_type='topic', do_not_create=0, durable=1, auto_deleted=0, internal=0, no_wait=0, properties=None,
                      channel_number=0):
-            super().__init__(reserved=0, exchange_name=exchange_name, exchange_type=exchange_type, do_not_create=do_not_create, durable=durable,
-                             auto_deleted=auto_deleted, internal=internal, no_wait=no_wait, properties=properties, channel_number=channel_number)
+            super().__init__(reserved=0, exchange_name=exchange_name, exchange_type=exchange_type,
+                             bits5=OrderedDict(do_not_create=do_not_create, durable=durable, auto_deleted=auto_deleted, internal=internal, no_wait=no_wait), properties=properties,
+                             channel_number=channel_number)
             self.exchange_name = exchange_name
             self.exchange_type = exchange_type
             self.do_not_create = do_not_create
@@ -314,12 +309,12 @@ class Exchange:
         method_id = 11
 
     class Delete(Method):
-        type_structure = [ReservedShortUint, ExchangeName, Bit2, Bit2]
+        type_structure = [ReservedShortUint, ExchangeName, Bit2]
         class_id = 40
         method_id = 20
 
         def __init__(self, exchange_name, delete_if_unused=0, no_wait=0, channel_number=0):
-            super().__init__(reversed=0, exchange_name=exchange_name, delete_if_unused=delete_if_unused, no_wait=no_wait, channel_number=channel_number)
+            super().__init__(reversed=0, exchange_name=exchange_name, bit2=OrderedDict(delete_if_unused=delete_if_unused, no_wait=no_wait), channel_number=channel_number)
             self.exchange_name = exchange_name
             self.delete_if_unused = delete_if_unused
             self.no_wait = no_wait
@@ -332,12 +327,12 @@ class Exchange:
 
 class Queue:
     class Declare(Method):
-        type_structure = [ReservedShortUint, QueueName, Bit5, Bit5, Bit5, Bit5, Bit5, FieldTable]
+        type_structure = [ReservedShortUint, QueueName, Bit5, FieldTable]
         class_id = 50
         method_id = 10
 
         def __init__(self, queue_name, passive=0, durable=1, exclusive=0, auto_deleted=0, no_wait=0, properties=None, channel_number=0):
-            super().__init__(reserved=0, queue_name=queue_name, passive=passive, durable=durable, exclusive=exclusive, auto_deleted=auto_deleted, no_wait=no_wait,
+            super().__init__(reserved=0, queue_name=queue_name, bit5=OrderedDict(passive=passive, durable=durable, exclusive=exclusive, auto_deleted=auto_deleted, no_wait=no_wait),
                              properties=properties, channel_number=channel_number)
             self.queue_name = queue_name
             self.passive = passive
@@ -364,7 +359,7 @@ class Queue:
         method_id = 20
 
         def __init__(self, queue_name, exchange_name, routing_key, no_wait=0, properties=None, channel_number=0):
-            super().__init__(reserved=0, queue_name=queue_name, exchange_name=exchange_name, routing_key=routing_key, no_wait=no_wait, properties=properties,
+            super().__init__(reserved=0, queue_name=queue_name, exchange_name=exchange_name, routing_key=routing_key, bit1=OrderedDict(no_wait=no_wait), properties=properties,
                              channel_number=channel_number)
             self.queue_name = queue_name
             self.exchange_name = exchange_name
@@ -380,25 +375,27 @@ class Queue:
 
 class Basic:
     class Publish(Method):
-        type_structure = [ReservedShortUint, ExchangeName, ShortString, Bit2, Bit2]
+        type_structure = [ReservedShortUint, ExchangeName, ShortString, Bit2]
         class_id = 60
         method_id = 40
         dont_wait_response = 1
 
         def __init__(self, exchange_name, routing_key, mandatory=0, immediate=0, channel_number=0):
-            super().__init__(reserved=0, exchange_name=exchange_name, routing_key=routing_key, mandatory=mandatory, immediate=immediate, channel_number=channel_number)
+            super().__init__(reserved=0, exchange_name=exchange_name, routing_key=routing_key,
+                             bit2=OrderedDict(mandatory=mandatory, immediate=immediate), channel_number=channel_number)
             self.exchange_name = exchange_name
             self.routing_key = routing_key
             self.mandatory = mandatory
             self.immediate = immediate
 
     class Consume(Method):
-        type_structure = [ReservedShortUint, QueueName, ConsumerTag, Bit4, Bit4, Bit4, Bit4, FieldTable]
+        type_structure = [ReservedShortUint, QueueName, ConsumerTag, Bit4, FieldTable]
         class_id = 60
         method_id = 20
 
         def __init__(self, queue_name, consumer_tag='', non_local=1, no_ack=0, exclusize=0, no_wait=0, properties=None, channel_number=0):
-            super().__init__(reserved=0, queue_name=queue_name, consumer_tag=consumer_tag, non_local=non_local, no_ack=no_ack, exclusize=exclusize, no_wait=no_wait,
+            super().__init__(reserved=0, queue_name=queue_name, consumer_tag=consumer_tag,
+                             bit4=OrderedDict(non_local=non_local, no_ack=no_ack, exclusize=exclusize, no_wait=no_wait),
                              properties=properties, channel_number=channel_number)
             self.queue_name = queue_name
             self.consumer_tag = consumer_tag
@@ -423,7 +420,7 @@ class Basic:
         method_id = 60
 
         def __init__(self, consumer_tag, delivery_tag, redelivered, exchange_name, routing_key, channel_number=0):
-            super().__init__(consumer_tag=consumer_tag, delivery_tag=delivery_tag, redelivered=redelivered, exchange_name=exchange_name, routing_key=routing_key,
+            super().__init__(consumer_tag=consumer_tag, delivery_tag=delivery_tag, bit1=OrderedDict(redelivered=redelivered), exchange_name=exchange_name, routing_key=routing_key,
                              channel_number=channel_number)
             self.consumer_tag = consumer_tag
             self.delivery_tag = delivery_tag
@@ -438,7 +435,7 @@ class Basic:
         dont_wait_response = 1
 
         def __init__(self, delivery_tag, multiple=0, channel_number=0):
-            super().__init__(delivery_tag=delivery_tag, multiple=multiple, channel_number=channel_number)
+            super().__init__(delivery_tag=delivery_tag, bit1=OrderedDict(multiple=multiple), channel_number=channel_number)
             self.delivery_tag = delivery_tag
             self.multiple = multiple
 
@@ -474,8 +471,9 @@ class Tx:
         class_id = 90
         method_id = 31
 
+
 FRAME_TYPES = {
-    1:     {
+    1: {
         10: {
             10: Connection.Start,
             11: Connection.StartOk,
@@ -535,43 +533,33 @@ def decode_frame(frame_bytes):
     if payload_size.decoded_value > len(frame_bytes[7:]) - 1:
         # data is non efficient
         return payload_size.decoded_value, None, frame_bytes
-    frame_payload, frame_end = frame_bytes[7:payload_size.decoded_value+7], frame_bytes[payload_size.decoded_value+7]
+    method_bytes, frame_end = frame_bytes[7:payload_size.decoded_value + 7], frame_bytes[payload_size.decoded_value + 7]
     if frame_end != frame_end:
         raise SfwException('Internal', 'Wrong frame end')
-    if payload_size.decoded_value != len(frame_payload):
+    if payload_size.decoded_value != len(method_bytes):
         raise SfwException('Internal', 'Wrong frame size')
     if frame_type == ShortShortUint(8):
-        return 0, FRAME_TYPES[frame_type.decoded_value](), frame_bytes[payload_size.decoded_value+7+1:]
+        return 0, FRAME_TYPES[frame_type.decoded_value](), frame_bytes[payload_size.decoded_value + 7 + 1:]
     elif frame_type in [ShortShortUint(2), ShortShortUint(3)]:
         result = []
         for i in FRAME_TYPES[frame_type.decoded_value].type_structure:
-            payload_part, frame_payload = i.decode(frame_payload)
+            payload_part, method_bytes = i.decode(method_bytes)
             result.append(payload_part.decoded_value)
-        return payload_size.decoded_value, FRAME_TYPES[frame_type.decoded_value](*result, channel_number=frame_channel.decoded_value), frame_bytes[payload_size.decoded_value+7+1:]
+        return payload_size.decoded_value, FRAME_TYPES[frame_type.decoded_value](*result, channel_number=frame_channel.decoded_value), frame_bytes[
+                                                                                                                                       payload_size.decoded_value + 7 + 1:]
     else:
-        method_bytes = frame_payload
-        (class_id, _), (method_id, _), method_payload = ShortUint.decode(method_bytes[0:2]), ShortUint.decode(method_bytes[2:4]), method_bytes[4: len(method_bytes)]
-        payload_bytes = method_payload
         result = []
-        bit_filed_flag = None
+        (class_id, _), (method_id, _), method_payload = ShortUint.decode(method_bytes[0:2]), ShortUint.decode(method_bytes[2:4]), method_bytes[4: len(method_bytes)]
         for i in FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value].type_structure:
+            payload_part, method_payload = i.decode(method_payload)
             if issubclass(i, Reserved):
-                payload_part, payload_bytes = i.decode(payload_bytes)
                 continue
-            if issubclass(i, Bit1):
-                bit_filed_flag = i
-                continue
-            if bit_filed_flag:
-                payload_part, payload_bytes = bit_filed_flag.decode(payload_bytes)
-                bit_filed_flag = None
+            elif issubclass(i, Bit1):
                 result.extend(payload_part.decoded_value)
-            payload_part, payload_bytes = i.decode(payload_bytes)
-            result.append(payload_part.decoded_value)
-        if bit_filed_flag:
-            payload_part, payload_bytes = bit_filed_flag.decode(payload_bytes)
-            result.extend(payload_part.decoded_value)
+            else:
+                result.append(payload_part.decoded_value)
         return (
             payload_size.decoded_value,
             FRAME_TYPES[frame_type.decoded_value][class_id.decoded_value][method_id.decoded_value](*result, channel_number=frame_channel.decoded_value),
-            frame_bytes[payload_size.decoded_value+7+1:]
+            frame_bytes[payload_size.decoded_value + 7 + 1:]
         )
