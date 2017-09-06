@@ -2,12 +2,10 @@ import logging
 import select
 import socket
 
-import time
 from collections import deque
 
 from amqpsfw import amqp_spec
 from amqpsfw.exceptions import SfwException
-
 
 amqpsfw_logger = logging.getLogger('amqpsfw')
 log_handler = logging.StreamHandler()
@@ -15,7 +13,6 @@ formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(module)s.py.%(funcN
 log_handler.setFormatter(formatter)
 amqpsfw_logger.addHandler(log_handler)
 amqpsfw_logger.setLevel(logging.DEBUG)
-
 
 log = logging.getLogger(__name__)
 
@@ -101,6 +98,7 @@ class Application:
         self.modify_to_write()
 
     def handle_error(self):
+        self.stop()
         raise SfwException('Internal', 'Socket error in handle error')
 
     def handle_read(self):
@@ -131,7 +129,6 @@ class Application:
                     pass
 
     def handle_write(self):
-        # TODO use more optimize structure for slice to avoid copping
         if len(self.buffer_out.frame_queue) > 0 and not self.buffer_out.current_frame_bytes:
             self.buffer_out.dont_wait_response = self.buffer_out.frame_queue[-1].dont_wait_response
             for frame in self.buffer_out.frame_queue:
@@ -172,6 +169,7 @@ class Application:
 
     def on_connection_start(self, method):
         self.write(amqp_spec.Connection.StartOk({'host': self.config.host}, self.config.sals_mechanism, credential=[self.config.credential.user, self.config.credential.password]))
+
     def on_connection_tune(self, method):
         self.write(amqp_spec.Connection.TuneOk(heartbeat_interval=self.config.heartbeat_interval))
 

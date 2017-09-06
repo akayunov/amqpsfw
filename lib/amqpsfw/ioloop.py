@@ -3,7 +3,6 @@ import time
 import select
 from functools import partial
 
-# TODO integration with asyncio
 IOLOOP = None
 log = logging.getLogger(__name__)
 STOPPED = 'STOPPED'
