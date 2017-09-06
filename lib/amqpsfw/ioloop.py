@@ -10,10 +10,6 @@ RUNNING = 'RUNNING'
 
 
 class IOLoop:
-    READ = select.EPOLLIN
-    WRITE = select.EPOLLOUT
-    ERROR = select.EPOLLERR
-
     def __new__(cls, *args, **kwargs):
         global IOLOOP
         if not IOLOOP:
@@ -70,7 +66,7 @@ class IOLoop:
             next_timeout_callback = self.run_callbacks()
             events = self.impl.poll(next_timeout_callback)  # TODO signals interupt this call??
             for fd, event in events:
-                log.debug('POOL: %s %s %s', next_timeout_callback, fd, 'write' if event & self.WRITE else 'read' if event & self.READ else event)
+                log.debug('POOL: %s %s %s', next_timeout_callback, fd, 'write' if event & select.EPOLLOUT else 'read' if event & select.EPOLLIN else event)
                 self.handler[fd](fd, event)
             if not events:
                 self.run_callbacks()

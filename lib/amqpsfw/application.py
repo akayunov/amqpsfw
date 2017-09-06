@@ -43,6 +43,9 @@ class BufferIn:
 class Application:
     STOPPED = 'STOPPPED'
     RUNNING = 'RUNNING'
+    READ = select.EPOLLIN
+    WRITE = select.EPOLLOUT
+    ERROR = (select.EPOLLERR | select.EPOLLPRI | select.EPOLLHUP | select.EPOLLRDHUP | select.EPOLLRDBAND | select.EPOLLWRBAND)
 
     def __init__(self, ioloop, app_socket=None):
         self.buffer_out = BufferOut()
@@ -50,6 +53,7 @@ class Application:
         self.ioloop = ioloop
         self.status = 'RUNNING'
         self.socket = app_socket
+        self.app_gen = self.processor()
         self.start()
 
     def set_config(self, config):
@@ -59,32 +63,13 @@ class Application:
         raise NotImplementedError
 
     def handler(self, fd, event):
-        # TODO add more events type
-        if event & self.ioloop.WRITE and self.status == 'RUNNING':
+        # TODO why == RUNNING is here?
+        if event & self.WRITE and self.status == 'RUNNING':
             self.handle_write()
-        if event & self.ioloop.READ and self.status == 'RUNNING':
+        if event & self.READ and self.status == 'RUNNING':
             self.handle_read()
-        if event & self.ioloop.ERROR:
+        if event & self.ERROR:
             self.handle_error()
-        # TODO fix it
-        # if event & self.ioloop._EPOLLHUP:
-        #     pass
-        # if event & self.ioloop.ERROR:
-        #     pass
-        # if event & self.ioloop._EPOLLRDHUP:
-        #     pass
-        # if event & (select.EPOLLIN | select.EPOLLPRI | select.EPOLLRDBAND):
-        #     log.debug('IN: %s %s %s', str(int(time.time())), events, next_timeout_callback)
-        #     self.handler(self.fileno, event)
-        # if event & select.EPOLLOUT:
-        #     log.debug('OUT: %s %s %s', str(int(time.time())), events, next_timeout_callback)
-        #     self.handler(self.fileno, event)
-        # if event & select.EPOLLHUP:
-        #     pass
-        # if event & select.EPOLLERR:
-        #     pass
-        # if event & select.EPOLLRDHUP:
-        #     pass
 
     def modify_to_read(self):
         events = select.EPOLLIN | select.EPOLLERR | select.EPOLLPRI | select.EPOLLRDBAND | select.EPOLLHUP | select.EPOLLRDHUP
@@ -155,6 +140,7 @@ class Application:
         return
 
     def processor(self):
+        yield
         raise NotImplementedError
 
     def stop(self):

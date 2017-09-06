@@ -15,7 +15,7 @@ class Client(Application):
         self.socket = socket.socket(af, socktype, proto)
         log.debug('CLIENT SOCKET ON CLIENT SIDE: ' + str(self.socket.fileno()) + str(sa))
         self.fileno = self.socket.fileno()
-        self.ioloop.add_handler(self.socket.fileno(), self.handler, self.ioloop.WRITE)
+        self.ioloop.add_handler(self.socket.fileno(), self.handler, self.WRITE)
         self.socket.setblocking(0)
         try:
             self.socket.connect(sa)
