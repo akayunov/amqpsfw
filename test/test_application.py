@@ -11,11 +11,11 @@ from amqpsfw.ioloop import IOLoop
 class AppTest(Application):
     def start(self):
         self.result = []
-        self.processor = self.processor()
+        self.app_gen = self.processor()
         (ssock, csock) = socket.socketpair()
         self.socket = ssock
         self.csock = csock
-        self.processor.send(None)
+        self.app_gen.send(None)
 
     def processor(self):
         while 1:

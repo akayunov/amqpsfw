@@ -44,11 +44,12 @@ class Application:
     STOPPED = 'STOPPPED'
     RUNNING = 'RUNNING'
 
-    def __init__(self, ioloop):
+    def __init__(self, ioloop, app_socket=None):
         self.buffer_out = BufferOut()
         self.buffer_in = BufferIn()
         self.ioloop = ioloop
         self.status = 'RUNNING'
+        self.socket = app_socket
         self.start()
 
     def set_config(self, config):
@@ -87,11 +88,11 @@ class Application:
 
     def modify_to_read(self):
         events = select.EPOLLIN | select.EPOLLERR | select.EPOLLPRI | select.EPOLLRDBAND | select.EPOLLHUP | select.EPOLLRDHUP
-        self.ioloop.update_handler(self.fileno, events)
+        self.ioloop.update_handler(self.socket.fileno(), events)
 
     def modify_to_write(self):
         events = select.EPOLLOUT | select.EPOLLIN | select.EPOLLERR | select.EPOLLHUP | select.EPOLLRDHUP
-        self.ioloop.update_handler(self.fileno, events)
+        self.ioloop.update_handler(self.socket.fileno(), events)
 
     def write(self, value):
         self.buffer_out.append_frame(value)
@@ -124,7 +125,7 @@ class Application:
             if response:
                 # TODO why this try here?
                 try:
-                    self.processor.send(response)
+                    self.app_gen.send(response)
                 except StopIteration:
                     pass
 
@@ -143,14 +144,14 @@ class Application:
             if self.buffer_out.dont_wait_response:
                 # TODO why this try here?
                 try:
-                    self.processor.send(None)
+                    self.app_gen.send(None)
                 except StopIteration:
                     pass
             self.buffer_out.clear()
 
     def sleep(self, duration):
         self.modify_to_write()
-        self.ioloop.current().call_later(duration, next, self.processor)
+        self.ioloop.current().call_later(duration, next, self.app_gen)
         return
 
     def processor(self):

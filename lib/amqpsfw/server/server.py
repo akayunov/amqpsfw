@@ -11,13 +11,9 @@ cc = None
 
 
 class ServerClient(Application):
-    def __init__(self, ioloop, socket=None):
-        self.socket = socket
-        super().__init__(ioloop)
-
     def start(self):
         self.set_config(Configuration)
-        self.processor = self.processor()
+        self.app_gen = self.processor()
         # res = socket.getaddrinfo(self.config.host, self.config.port, socket.AF_INET, socket.SOCK_STREAM)
         # af, socktype, proto, canonname, sa = res[0]
         # self.socket = socket.socket(af, socktype, proto)
@@ -31,7 +27,7 @@ class ServerClient(Application):
         #         pass
         #     else:
         #         raise
-        self.processor.send(None)
+        self.app_gen.send(None)
 
     def processor(self):
         yield
@@ -56,7 +52,7 @@ class Server(Application):
 
     def start(self):
         self.set_config(Configuration)
-        self.processor = self.processor()
+        self.app_gen = self.processor()
         res = socket.getaddrinfo(self.config.host, self.config.port, socket.AF_INET, socket.SOCK_STREAM)
         af, socktype, proto, canonname, sa = res[0]
         self.socket = socket.socket(af, socktype, proto)
@@ -75,7 +71,7 @@ class Server(Application):
         #         raise
         self.socket.bind(sa)
         self.socket.listen(10)
-        self.processor.send(None)
+        self.app_gen.send(None)
 
     def processor(self):
         protocol_header = yield

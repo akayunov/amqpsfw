@@ -3,7 +3,7 @@ from collections import namedtuple
 
 from amqpsfw.exceptions import SfwException
 
-
+# TODO think about configuration
 DEFAULT_CONFIG = {
     'host': 'localhost',
     'port': 5555,

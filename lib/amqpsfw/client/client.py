@@ -9,7 +9,7 @@ log = logging.getLogger(__name__)
 class Client(Application):
     def start(self):
         self.set_config(Configuration)
-        self.processor = self.processor()
+        self.app_gen = self.processor()
         res = socket.getaddrinfo(self.config.host, self.config.port, socket.AF_INET, socket.SOCK_STREAM)
         af, socktype, proto, canonname, sa = res[0]
         self.socket = socket.socket(af, socktype, proto)
@@ -24,7 +24,7 @@ class Client(Application):
                 pass
             else:
                 raise
-        self.processor.send(None)
+        self.app_gen.send(None)
 
     def processor(self):
         protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', *Configuration.amqp_version)
