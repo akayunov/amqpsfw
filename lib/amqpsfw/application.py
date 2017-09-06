@@ -105,10 +105,9 @@ class Application:
 
     def handle_read(self):
         # we cant parse full buffer in one call because if many data in buffer then we will be run this cycle by buffer while buffer became empty
-        # but in case Basic.Ack we need to write response immediatly after get frame
-        # try to read all data and stay non parse yet in buffer to get read event from pool again,
-        # after we've parsed frame - read again to remove frame from socket
-        # TODO but now we read frame by frame but can read all buffer at one attempt, but it simple
+        # but in case Basic.Ack we need to write response immediatly after get frame,
+        # so we read data, but don't remove it from socket buffer for getting read events again and then all data in app buffer is parser
+        #  remove data from socket buffer
         payload_size, frame, self.buffer_in.frame_bytes = amqp_spec.decode_frame(self.buffer_in.frame_bytes)
         if not frame:
             self.buffer_in.frame_bytes = self.socket.recv(4096, socket.MSG_PEEK)
@@ -116,16 +115,14 @@ class Application:
                 self.stop()
             payload_size, frame, self.buffer_in.frame_bytes = amqp_spec.decode_frame(self.buffer_in.frame_bytes)
         if frame:
-            # remove already parsed data, do second read without flag
-            # TODO do it by one read on all frame from buffer to performance
-            self.socket.recv(payload_size + 8)
-            # import pdb;pdb.set_trace()
-            # if self.buffer_in.parsed_data_size:
-            #     self.socket.recv(self.buffer_in.parsed_data_size)
-            #     self.buffer_in.clear()
-            self.buffer_in.parsed_data_size += payload_size + 8
+            self.buffer_in.parsed_data_size += (payload_size + 8)
             log.debug(frame)
             response = self.method_handler(frame)
+            _, next_frame, _ = amqp_spec.decode_frame(self.buffer_in.frame_bytes)
+            if not next_frame:
+                # "frame" was last frame in buffer_in so remove already parsed data, do second read without flag
+                self.socket.recv(self.buffer_in.parsed_data_size)
+                self.buffer_in.clear()
             if response:
                 # TODO why this try here?
                 try:
