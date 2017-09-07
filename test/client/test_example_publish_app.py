@@ -15,7 +15,8 @@ class TestClientPublish:
             def processor(self):
                 channel_number = 1
                 start = yield from super().processor()
-                start_ok = amqp_spec.Connection.StartOk({'host': self.config.host}, self.config.sals_mechanism, credential=[self.config.credential.user, self.config.credential.password])
+                start_ok = amqp_spec.Connection.StartOk(
+                    {'host': self.config.host}, self.config.sals_mechanism, credential=[self.config.credential.user, self.config.credential.password])
                 tune = yield self.write(start_ok)
 
                 tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=self.config.heartbeat_interval)

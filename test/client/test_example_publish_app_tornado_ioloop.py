@@ -61,12 +61,13 @@ class TestClientPublishTornado:
                     content = 'qrqwrq' + str(i)
                     r = [
                         amqp_spec.Basic.Publish(exchange_name='message', routing_key='text.tratata', channel_number=channel_number),
-                        amqp_spec.Header(class_id=amqp_spec.Basic.Publish.class_id, body_size=len(content), header_properties={'content-type': 'application/json'}, channel_number=channel_number),
+                        amqp_spec.Header(class_id=amqp_spec.Basic.Publish.class_id, body_size=len(content), header_properties={'content-type': 'application/json'},
+                                         channel_number=channel_number),
                         amqp_spec.Content(content=content, channel_number=channel_number)
                     ]
                     publish_methods = r
-                    for i in publish_methods:
-                        response = yield self.write(i)
+                    for pm in publish_methods:
+                        response = yield self.write(pm)
                         assert response is None
                 yield self.write(amqp_spec.Channel.Close(channel_number=channel_number))
                 yield self.write(amqp_spec.Connection.Close())

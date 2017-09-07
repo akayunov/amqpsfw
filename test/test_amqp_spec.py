@@ -5,8 +5,7 @@ import pytest
 
 sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
 
-from amqpsfw.exceptions import SfwException
-from amqpsfw import amqp_spec, sasl_spec
+from amqpsfw import amqp_spec
 
 
 class TestAmqpSpec:
@@ -38,8 +37,9 @@ class TestAmqpSpec:
         assert amqp_spec.decode_frame(s.encoded) == (len(s) - 8, s, b'')
 
     def test_connection_startok(self):
-        start_ok = amqp_spec.Connection.StartOk(peer_properties={'tratata': 121}, mechanism='PLAIN', credential=['user', 'password'], locale='en_US',  channel_number=123)
-        assert  amqp_spec.decode_frame(start_ok.encoded) == (len(start_ok) - 8, start_ok, b'')
+        start_ok = amqp_spec.Connection.StartOk(
+            peer_properties={'tratata': 121}, mechanism='PLAIN', credential=['user', 'password'], locale='en_US',  channel_number=123)
+        assert amqp_spec.decode_frame(start_ok.encoded) == (len(start_ok) - 8, start_ok, b'')
 
     def test_connection_secure(self):
         secure = amqp_spec.Connection.Secure(challenge='tratatata', channel_number=124)

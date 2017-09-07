@@ -7,9 +7,12 @@ import pytest
 sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib')] + sys.path
 
 from amqpsfw.exceptions import SfwException
-from amqpsfw.amqp_types import (AmqpType, String, Reserved, ShortString, ConsumerTag, Path, QueueName, LongString, Char, Bool, Bit1, Bit2, Bit3, Bit4, Bit5, Bit6, Bit7,
-                                Bit8, ShortUint, ExchangeName, HeaderProperty, LongUint, MessageCount, LongLongUint, DeliveryTag, FieldTable, ReservedShortString,
-                                ReservedLongString, ReservedBit1, ReservedShortUint, ShortShortUint, ShortInt, LongInt, Float, Double, Decimal, LongLongInt, FieldArray,
+from amqpsfw.amqp_types import (AmqpType, String, Reserved, ShortString, ConsumerTag, Path, QueueName, LongString, Char, Bool, Bit1, Bit2, Bit3, Bit4, Bit5,
+                                Bit6, Bit7,
+                                Bit8, ShortUint, ExchangeName, HeaderProperty, LongUint, MessageCount, LongLongUint, DeliveryTag, FieldTable,
+                                ReservedShortString,
+                                ReservedLongString, ReservedBit1, ReservedShortUint, ShortShortUint, ShortInt, LongInt, Float, Double, Decimal,
+                                LongLongInt, FieldArray,
                                 TimeStamp, ShortShortInt)
 
 
@@ -37,7 +40,8 @@ class TestAmqpTypes:
 
     # TODO test that decode return tail of bytes is rigth
     @pytest.mark.parametrize('types', [
-        (String, 'qwqwr'), (String, b'qwqwr'), (ShortString, 'asfaf'), (ConsumerTag, 'zvzdbv'), (Path, 'asdggas'), (QueueName, 'sdgsdg'), (ExchangeName, 'asagaga'), (LongString, 'a' * 300),
+        (String, 'qwqwr'), (String, b'qwqwr'), (ShortString, 'asfaf'), (ConsumerTag, 'zvzdbv'), (Path, 'asdggas'), (QueueName, 'sdgsdg'), (ExchangeName, 'asagaga'),
+        (LongString, 'a' * 300),
         (LongString, bytes([1, 2, 3, 15])), (LongString, bytearray([1, 2, 3, 4])), (LongString, String('aqwrq')), (Char, 'c'),
         (Bool, True), (Bit1, [1]), (Bit2, [1, 1]), (Bit3, [1, 0, 1]), (Bit4, [1, 0, 1, 1]), (Bit5, [1, 1, 1, 0, 1]), (Bit6, [1, 0, 0, 0, 0, 1]), (Bit7, [1, 0, 0, 0, 0, 0, 1]),
         (Bit8, [1, 1, 1, 1, 1, 0, 0, 1]), (ShortUint, 124), (ShortShortUint, 12), (ShortInt, 12), (LongInt, 125), (ShortShortInt, 125),

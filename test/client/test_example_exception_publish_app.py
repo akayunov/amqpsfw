@@ -6,6 +6,7 @@ sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'
 from amqpsfw import amqp_spec, ioloop
 from amqpsfw.client.client import Client
 
+
 class TestClientExceptionPublish:
     def test_client_exception_publish(self):
         class PublishAplication(Client):
@@ -74,7 +75,10 @@ class TestClientExceptionPublish:
                         # import pdb;pdb.set_trace()
                         assert type(response) == amqp_spec.Connection.Close
                         yield self.stop()
-                    response = yield self.write(amqp_spec.Header(class_id=amqp_spec.Basic.Publish.class_id, body_size=len(content), header_properties={'content-type': 'application/json'},channel_number=channel_number))
+                    response = yield self.write(
+                        amqp_spec.Header(
+                            class_id=amqp_spec.Basic.Publish.class_id, body_size=len(content), header_properties={'content-type': 'application/json'},
+                            channel_number=channel_number))
                     if response:
                         assert type(response) == amqp_spec.Connection.Close
                         # import pdb;
