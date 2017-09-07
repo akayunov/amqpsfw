@@ -26,6 +26,7 @@ class AppTest(Application):
 class TestAmqpSpec:
     def test_handle_read_one_by_one(self):
         app = AppTest(IOLoop())
+        app.start()
         expected = []
         for i in range(10):
             data = amqp_spec.Basic.Publish('exc_name', 'routing')
@@ -40,6 +41,7 @@ class TestAmqpSpec:
 
     def test_handle_read_bunch(self):
         app = AppTest(IOLoop())
+        app.start()
         expected = []
         for i in range(10):
             data = amqp_spec.Basic.Publish('exc_name', 'routing')
@@ -54,6 +56,7 @@ class TestAmqpSpec:
 
     def test_handle_read_not_full_frame(self):
         app = AppTest(IOLoop())
+        app.start()
         expected = []
         for i in range(5):
             data = amqp_spec.Basic.Publish('exc_name', 'routing')

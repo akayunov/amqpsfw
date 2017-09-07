@@ -2,7 +2,6 @@ import logging
 import socket
 from amqpsfw.application import Application
 from amqpsfw import amqp_spec
-from amqpsfw.configuration import Configuration
 
 log = logging.getLogger(__name__)
 
@@ -14,7 +13,7 @@ class Client(Application):
         self.socket = socket.socket(af, socktype, proto)
         log.debug('Client socket on client side: ' + str(self.socket.fileno()) + str(sa))
         self.app_gen = self.processor()
-        self.ioloop.add_handler(self.socket.fileno(), self.handler, self.WRITE)
+        self.ioloop.add_handler(self.socket.fileno(), self.handler, self.WRITE | self.ERROR)
         self.socket.setblocking(0)
         try:
             self.socket.connect(sa)
@@ -26,5 +25,5 @@ class Client(Application):
         self.app_gen.send(None)
 
     def processor(self):
-        protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', *Configuration.amqp_version)
+        protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', *self.config.amqp_version)
         yield self.write(protocol_header)

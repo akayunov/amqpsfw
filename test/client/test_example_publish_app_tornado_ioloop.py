@@ -77,7 +77,8 @@ class TestClientPublishTornado:
 
         def start_aplication():
             io_loop = ioloop.IOLoop()
-            TornadoAplication(ioloop=io_loop)
+            app = TornadoAplication(ioloop=io_loop)
+            app.start()
             io_loop.start()
 
         start_aplication()

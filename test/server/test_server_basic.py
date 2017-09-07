@@ -13,7 +13,6 @@ class TestServer:
         class ClientPublishAplication(Client):
             method_mapper = {}
 
-            self.config.port = 5555
             def processor(self):
                 channel_number = 1
                 start = yield from super().processor()
@@ -63,7 +62,6 @@ class TestServer:
         class ServerAplication(ServerClient):
             method_mapper = {}
 
-            self.config.port = 5555
             def processor(self):
                 channel_number = 1
                 yield from super().processor()
@@ -95,6 +93,10 @@ class TestServer:
                 yield self.stop()
 
         io_loop = ioloop.IOLoop()
-        Server(io_loop, ServerAplication)
-        ClientPublishAplication(io_loop)
+        s_app = Server(io_loop, ServerAplication)
+        s_app.config.port = 55555
+        s_app.start()
+        c_app = ClientPublishAplication(io_loop)
+        c_app.config.port = 55555
+        c_app.start()
         io_loop.start()

@@ -90,7 +90,8 @@ class TestClientConsumer:
 
         def start_aplication():
             io_loop = ioloop.IOLoop()
-            ConsumerAplication(io_loop)
+            app = ConsumerAplication(io_loop)
+            app.start()
             io_loop.start()
 
         start_aplication()

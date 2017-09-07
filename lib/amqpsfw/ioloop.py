@@ -3,6 +3,8 @@ import time
 import select
 from functools import partial
 
+from amqpsfw.utils import map_event_to_io_state
+
 IOLOOP = None
 log = logging.getLogger(__name__)
 STOPPED = 'STOPPED'
@@ -38,14 +40,17 @@ class IOLoop:
         else:
             self.callbacks[when] = [partial(func, *args, **kwargs)]
 
-    def add_handler(self, fileno, handler, io_state):
-        self.impl.register(fileno, select.EPOLLERR | io_state)
-        self.handler[fileno] = handler
+    def add_handler(self, fd, handler, events):
+        log.debug('%s %s %s', fd, handler, map_event_to_io_state(events))
+        self.impl.register(fd, events)
+        self.handler[fd] = handler
 
     def update_handler(self, fd, events):
+        log.debug('%s %s', fd, map_event_to_io_state(events))
         self.impl.modify(fd, events)
 
     def unregistered(self, fd):
+        log.debug('%s', fd)
         del self.handler[fd]
         self.impl.unregister(fd)
 
@@ -66,7 +71,7 @@ class IOLoop:
             next_timeout_callback = self.run_callbacks()
             events = self.impl.poll(next_timeout_callback)  # TODO signals interupt this call??
             for fd, event in events:
-                log.debug('POOL: %s %s %s', next_timeout_callback, fd, 'write' if event & select.EPOLLOUT else 'read' if event & select.EPOLLIN else event)
+                log.debug('POOL: %s %s %s', next_timeout_callback, fd, map_event_to_io_state(event))
                 self.handler[fd](fd, event)
             if not events:
                 self.run_callbacks()

@@ -97,7 +97,8 @@ class TestClientExceptionPublish:
 
         def start_aplication():
             io_loop = ioloop.IOLoop()
-            PublishAplication(io_loop)
+            app = PublishAplication(io_loop)
+            app.start()
             io_loop.start()
 
         start_aplication()

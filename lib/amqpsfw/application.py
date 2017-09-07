@@ -46,17 +46,17 @@ class Application:
     RUNNING = 'RUNNING'
     READ = select.EPOLLIN
     WRITE = select.EPOLLOUT
-    ERROR = (select.EPOLLERR | select.EPOLLPRI | select.EPOLLHUP | select.EPOLLRDHUP | select.EPOLLRDBAND | select.EPOLLWRBAND)
+    ERROR = (select.EPOLLERR | select.EPOLLPRI | select.EPOLLHUP | select.EPOLLRDHUP | select.EPOLLRDBAND)
+    PRIWRITE = select.EPOLLWRBAND  # doesn't use
 
     def __init__(self, ioloop, app_socket=None):
-        self.config = Configuration
         self.buffer_out = BufferOut()
         self.buffer_in = BufferIn()
         self.ioloop = ioloop
         self.status = 'RUNNING'
         self.socket = app_socket
         self.app_gen = self.processor()
-        self.start()
+        self.config = Configuration()
 
     def start(self):
         raise NotImplementedError
@@ -71,11 +71,11 @@ class Application:
             self.handle_error(fd)
 
     def modify_to_read(self):
-        events = select.EPOLLIN | select.EPOLLERR | select.EPOLLPRI | select.EPOLLRDBAND | select.EPOLLHUP | select.EPOLLRDHUP
+        events = self.READ | self.ERROR
         self.ioloop.update_handler(self.socket.fileno(), events)
 
     def modify_to_write(self):
-        events = select.EPOLLOUT | select.EPOLLIN | select.EPOLLERR | select.EPOLLHUP | select.EPOLLRDHUP
+        events = self.WRITE | self.READ | self.ERROR
         self.ioloop.update_handler(self.socket.fileno(), events)
 
     def write(self, value):
@@ -99,7 +99,7 @@ class Application:
             payload_size, frame, self.buffer_in.frame_bytes = amqp_spec.decode_frame(self.buffer_in.frame_bytes)
         if frame:
             self.buffer_in.parsed_data_size += (payload_size + 8)
-            log.debug(frame)
+            log.debug('IN {}: {}'.format(self.socket.fileno(), frame))
             response = self.method_handler(frame)
             _, next_frame, _ = amqp_spec.decode_frame(self.buffer_in.frame_bytes)
             if not next_frame:
@@ -117,7 +117,7 @@ class Application:
         if len(self.buffer_out.frame_queue) > 0 and not self.buffer_out.current_frame_bytes:
             self.buffer_out.dont_wait_response = self.buffer_out.frame_queue[-1].dont_wait_response
             for frame in self.buffer_out.frame_queue:
-                log.debug('OUT:' + str(frame))
+                log.debug('OUT {}: {}'.format(self.socket.fileno(), frame))
                 self.buffer_out.current_frame_bytes += frame.encoded
             self.buffer_out.frame_queue.clear()
         if self.buffer_out.current_frame_bytes:
