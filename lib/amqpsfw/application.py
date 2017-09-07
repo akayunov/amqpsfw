@@ -61,15 +61,6 @@ class Application:
     def start(self):
         raise NotImplementedError
 
-    def handler(self, fd, event):
-        # TODO why == RUNNING is here?
-        if event & self.WRITE and self.status == 'RUNNING':
-            self.handle_write()
-        if event & self.READ and self.status == 'RUNNING':
-            self.handle_read()
-        if event & self.ERROR:
-            self.handle_error(fd)
-
     def modify_to_read(self):
         events = self.READ | self.ERROR
         self.ioloop.update_handler(self.socket.fileno(), events)
@@ -81,6 +72,15 @@ class Application:
     def write(self, value):
         self.buffer_out.append_frame(value)
         self.modify_to_write()
+
+    def handler(self, fd, event):
+        # TODO why == RUNNING is here?
+        if event & self.WRITE and self.status == 'RUNNING':
+            self.handle_write()
+        if event & self.READ and self.status == 'RUNNING':
+            self.handle_read()
+        if event & self.ERROR:
+            self.handle_error(fd)
 
     def handle_error(self, fd):
         self.stop()
