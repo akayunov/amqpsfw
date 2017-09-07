@@ -9,3 +9,4 @@ class Configuration:
     amqp_version = (0, 0, 9, 1)
     heartbeat_interval = 100
     virtual_host = '/'
+    listen_queue_size = 10
