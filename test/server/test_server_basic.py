@@ -94,9 +94,9 @@ class TestServer:
 
         io_loop = ioloop.IOLoop()
         s_app = Server(io_loop, ServerAplication)
-        s_app.config.port = 55555
-        s_app.start()
         c_app = ClientPublishAplication(io_loop)
         c_app.config.port = 55555
+        s_app.config.port = 55555
+        s_app.start()
         c_app.start()
         io_loop.start()
