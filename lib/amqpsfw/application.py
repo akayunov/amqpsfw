@@ -13,7 +13,7 @@ log_handler = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(module)s.py.%(funcName)s:%(lineno)d - %(message)s')
 log_handler.setFormatter(formatter)
 amqpsfw_logger.addHandler(log_handler)
-amqpsfw_logger.setLevel(logging.DEBUG)
+amqpsfw_logger.setLevel(logging.ERROR)
 
 log = logging.getLogger(__name__)
 
