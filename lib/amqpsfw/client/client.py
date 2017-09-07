@@ -12,7 +12,6 @@ class Client(Application):
         af, socktype, proto, canonname, sa = res[0]
         self.socket = socket.socket(af, socktype, proto)
         log.debug('Client socket on client side: ' + str(self.socket.fileno()) + str(sa))
-        self.app_gen = self.processor()
         self.ioloop.add_handler(self.socket.fileno(), self.handler, self.WRITE | self.ERROR)
         self.socket.setblocking(0)
         try:
