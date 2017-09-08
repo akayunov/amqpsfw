@@ -56,4 +56,4 @@ class ServerClient(Application):
         self.config.heartbeat_interval = tune_ok.heartbeat_interval
         connection_open = yield
         self.config.virtual_host = connection_open.virtual_host
-        yield self.write(amqp_spec.Connection.OpenOk())
+        yield self.write(amqp_spec.Connection.ConOpenOk())

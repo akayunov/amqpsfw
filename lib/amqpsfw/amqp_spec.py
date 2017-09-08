@@ -193,7 +193,7 @@ class Connection:
             self.frame_max = frame_max
             self.heartbeat_interval = heartbeat_interval
 
-    class Open(Method):
+    class ConOpen(Method):
         type_structure = [Path, ReservedShortString, ReservedBit1]
         class_id = 10
         method_id = 40
@@ -202,7 +202,7 @@ class Connection:
             super().__init__(virtual_host=virtual_host, reserved='', bit1=OrderedDict(reserved1=0), channel_number=channel_number)
             self.virtual_host = virtual_host
 
-    class OpenOk(Method):
+    class ConOpenOk(Method):
         type_structure = [ReservedShortString]
         class_id = 10
         method_id = 41
@@ -210,7 +210,7 @@ class Connection:
         def __init__(self, channel_number=0):
             super().__init__(reserved='', channel_number=channel_number)
 
-    class Close(Method):
+    class ConClose(Method):
         type_structure = [ShortUint, ShortString, ShortUint, ShortUint]
         class_id = 10
         method_id = 50
@@ -222,14 +222,14 @@ class Connection:
             self.class_id = class_id
             self.method_id = method_id
 
-    class CloseOk(Method):
+    class ConCloseOk(Method):
         type_structure = []
         class_id = 10
         method_id = 51
 
 
 class Channel:
-    class Open(Method):
+    class ChOpen(Method):
         type_structure = [ReservedShortString]
         class_id = 20
         method_id = 10
@@ -238,7 +238,7 @@ class Channel:
             super().__init__(reserved='', channel_number=channel_number)
             self.channel_number = channel_number
 
-    class OpenOk(Method):
+    class ChOpenOk(Method):
         type_structure = [ReservedLongString]
         class_id = 20
         method_id = 11
@@ -264,7 +264,7 @@ class Channel:
             super().__init__(bit1=OrderedDict(active=active), channel_number=channel_number)
             self.active = active
 
-    class Close(Method):
+    class ChClose(Method):
         type_structure = [ShortUint, ShortString, ShortUint, ShortUint]
         class_id = 20
         method_id = 40
@@ -276,14 +276,14 @@ class Channel:
             self.class_id = class_id
             self.method_id = method_id
 
-    class CloseOk(Method):
+    class ChCloseOk(Method):
         type_structure = []
         class_id = 20
         method_id = 41
 
 
 class Exchange:
-    class Declare(Method):
+    class ExDeclare(Method):
         type_structure = [ReservedShortUint, ExchangeName, ShortString, Bit5, FieldTable]
         class_id = 40
         method_id = 10
@@ -303,7 +303,7 @@ class Exchange:
             self.properties = properties
             self.channel_number = channel_number
 
-    class DeclareOk(Method):
+    class ExDeclareOk(Method):
         type_structure = []
         class_id = 40
         method_id = 11
@@ -326,7 +326,7 @@ class Exchange:
 
 
 class Queue:
-    class Declare(Method):
+    class QDeclare(Method):
         type_structure = [ReservedShortUint, QueueName, Bit5, FieldTable]
         class_id = 50
         method_id = 10
@@ -342,7 +342,7 @@ class Queue:
             self.no_wait = no_wait
             self.properties = properties
 
-    class DeclareOk(Method):
+    class QDeclareOk(Method):
         type_structure = [QueueName, MessageCount, LongUint]
         class_id = 50
         method_id = 11
@@ -481,28 +481,28 @@ FRAME_TYPES = {
             21: Connection.SecureOk,
             30: Connection.Tune,
             31: Connection.TuneOk,
-            40: Connection.Open,
-            41: Connection.OpenOk,
-            50: Connection.Close,
-            51: Connection.CloseOk
+            40: Connection.ConOpen,
+            41: Connection.ConOpenOk,
+            50: Connection.ConClose,
+            51: Connection.ConCloseOk
         },
         20: {
-            10: Channel.Open,
-            11: Channel.OpenOk,
+            10: Channel.ChOpen,
+            11: Channel.ChOpenOk,
             20: Channel.Flow,
             21: Channel.FlowOk,
-            40: Channel.Close,
-            41: Channel.CloseOk
+            40: Channel.ChClose,
+            41: Channel.ChCloseOk
         },
         40: {
-            10: Exchange.Declare,
-            11: Exchange.DeclareOk,
+            10: Exchange.ExDeclare,
+            11: Exchange.ExDeclareOk,
             20: Exchange.Delete,
             21: Exchange.DeleteOk
         },
         50: {
-            10: Queue.Declare,
-            11: Queue.DeclareOk,
+            10: Queue.QDeclare,
+            11: Queue.QDeclareOk,
             20: Queue.Bind,
             21: Queue.BindOk
         },
