@@ -9,8 +9,6 @@ from amqpsfw.client.configuration import Configuration
 
 
 class PublishAplication(Client):
-    method_mapper = {}
-
     def processor(self):
         channel_number = 1
         start = yield from super().processor()

@@ -10,7 +10,6 @@ from amqpsfw.client.client import Client
 from amqpsfw.client.configuration import Configuration as CConf
 from amqpsfw.server.configuration import Configuration as SConf
 class ClientPublishAplication(Client):
-    method_mapper = {}
 
     CConf.port = 5555
 
@@ -62,7 +61,6 @@ class ClientPublishAplication(Client):
 
 
 class ServerAplication(ServerClient):
-    method_mapper = {}
 
     SConf.port = 5555
 

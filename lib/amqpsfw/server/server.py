@@ -41,5 +41,3 @@ class ServerClient(Application):
         self.socket.setblocking(0)
         self.app_gen.send(None)
 
-    def processor(self):
-        yield

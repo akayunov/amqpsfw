@@ -14,11 +14,7 @@ class TestClientPublish:
                 channel_number = 1
                 yield from super().processor()
 
-                c_open = amqp_spec.Connection.Open(virtual_host=self.config.virtual_host)
-                openok = yield self.write(c_open)
 
-                # channel_obj = amqp_spec.Channel()
-                # ch_open = channel_obj.Open(channel_number=1)
                 ch_open1 = amqp_spec.Channel.Open(channel_number=1)
                 ch_open_ok = yield self.write(ch_open1)
 

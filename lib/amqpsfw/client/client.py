@@ -25,4 +25,22 @@ class Client(Application):
 
     def processor(self):
         protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', *self.config.amqp_version)
-        yield self.write(protocol_header)
+        connection_start = yield self.write(protocol_header)
+        self.config.server_properties = connection_start.server_properties
+        self.config.server_version_major = connection_start.version_major
+        self.config.server_version_minor = connection_start.version_minor
+        self.config.server_security_mechanism = connection_start.mechanisms
+        self.config.server_locale = connection_start.locale
+        frame = yield self.write(amqp_spec.Connection.StartOk(
+            self.config.client_properties, self.config.security_mechanism, credential=[self.config.credential.user, self.config.credential.password]
+        ))
+        if type(frame) is amqp_spec.Connection.Secure:
+            self.config.secure_challenge = frame.challenge
+            tune = yield self.write(amqp_spec.Connection.SecureOk(response=self.config.secure_response))
+        else:
+            tune = frame
+        self.config.channel_max = tune.channel_max
+        self.config.frame_max = tune.frame_max
+        self.config.heartbeat_interval = tune.heartbeat_interval
+        yield self.write(amqp_spec.Connection.TuneOk(heartbeat_interval=self.config.heartbeat_interval))
+        yield self.write(amqp_spec.Connection.Open(virtual_host=self.config.virtual_host))

@@ -16,3 +16,4 @@
 14) add full sasl support
 15) type annotation
 16) # TODO integration with asyncio
+17) move all literals in config

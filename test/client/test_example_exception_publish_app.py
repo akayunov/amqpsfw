@@ -10,23 +10,10 @@ from amqpsfw.client.client import Client
 class TestClientExceptionPublish:
     def test_client_exception_publish(self):
         class PublishAplication(Client):
-            method_mapper = {}
 
             def processor(self):
                 channel_number = 1
                 start = yield from super().processor()
-                start_ok = amqp_spec.Connection.StartOk({'host': self.config.host}, self.config.sals_mechanism, credential=[self.config.credential.user, self.config.credential.password])
-                tune = yield self.write(start_ok)
-
-                tune_ok = amqp_spec.Connection.TuneOk(heartbeat_interval=self.config.heartbeat_interval)
-                # yield self.write(tune_ok)  # it works too!!!! and frame must be send to server
-                self.write(tune_ok)  # it works too!!!! and frame will be send to server on next yield
-
-                c_open = amqp_spec.Connection.Open(virtual_host=self.config.virtual_host)
-                openok = yield self.write(c_open)
-
-                # channel_obj = amqp_spec.Channel()
-                # ch_open = channel_obj.Open(channel_number=1)
                 ch_open1 = amqp_spec.Channel.Open(channel_number=1)
                 ch_open_ok = yield self.write(ch_open1)
 
@@ -74,6 +61,8 @@ class TestClientExceptionPublish:
                     if response:
                         # import pdb;pdb.set_trace()
                         assert type(response) == amqp_spec.Connection.Close
+                        import pdb;
+                        pdb.set_trace()
                         yield self.stop()
                     response = yield self.write(
                         amqp_spec.Header(
@@ -83,13 +72,17 @@ class TestClientExceptionPublish:
                         assert type(response) == amqp_spec.Connection.Close
                         # import pdb;
                         # pdb.set_trace()
+                        import pdb;pdb.set_trace()
                         yield self.stop()
                     response = yield self.write(amqp_spec.Content(content=content, channel_number=channel_number))
                     if response:
                         assert type(response) == amqp_spec.Connection.Close
                         # import pdb;
                         # pdb.set_trace()
+                        import pdb;
+                        pdb.set_trace()
                         yield self.stop()
+
                 # assert type(response) is amqp_spec.Connection.Close
                 # import pdb;pdb.set_trace()
                 # response = yield self.sleep(10)
