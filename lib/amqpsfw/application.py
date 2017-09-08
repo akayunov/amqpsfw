@@ -154,7 +154,7 @@ class Application:
         self.write(amqp_spec.Heartbeat())
 
     def on_connection_start(self, method):
-        self.write(amqp_spec.Connection.StartOk({'host': self.config.host}, self.config.security_mechanism, credential=[self.config.credential.user, self.config.credential.password]))
+        self.write(amqp_spec.Connection.StartOk({'host': self.config.host}, self.config.security_mechanisms, credential=[self.config.credential.user, self.config.credential.password]))
 
     def on_connection_tune(self, method):
         self.write(amqp_spec.Connection.TuneOk(heartbeat_interval=self.config.heartbeat_interval))
@@ -163,12 +163,11 @@ class Application:
         self.write(amqp_spec.Connection.SecureOk(response='tratata'))
 
     def on_connection_close(self, method):
-        start_ok = amqp_spec.Connection.CloseOk()
-        self.write(start_ok)
+        self.write(amqp_spec.Connection.CloseOk())
         self.stop()
 
     def on_channel_flow(self, method):
-        self.write(amqp_spec.Channel.FlowOk())
+        self.write(amqp_spec.Channel.FlowOk(method.active))
 
     def on_channel_close(self, method):
         self.write(amqp_spec.Channel.CloseOk())

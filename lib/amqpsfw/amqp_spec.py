@@ -145,10 +145,10 @@ class Connection:
         class_id = 10
         method_id = 11
 
-        def __init__(self, peer_properties, mechanism, credential, locale='en_US', channel_number=0):
-            super().__init__(peer_properties=peer_properties, mechanism=mechanism, credential=credential, locale=locale, channel_number=channel_number)
-            self.peer_properties = peer_properties
-            self.mechanism = mechanism
+        def __init__(self, client_properties, mechanisms, credential, locale='en_US', channel_number=0):
+            super().__init__(client_properties=client_properties, mechanisms=mechanisms, credential=credential, locale=locale, channel_number=channel_number)
+            self.client_properties = client_properties
+            self.mechanisms = mechanisms
             self.credential = credential
             self.locale = locale
 

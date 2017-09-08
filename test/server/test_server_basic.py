@@ -50,18 +50,9 @@ class TestServer:
 
             def processor(self):
                 channel_number = 1
-                # yield from super().processor()
-                yield
+                channel_open = yield from super().processor()
                 # import pdb;pdb.set_trace()
-                start = amqp_spec.Connection.Start(0, 9, {'host': self.config.host}, self.config.security_mechanism)
-                start_ok = yield self.write(start)
 
-                tune = amqp_spec.Connection.Tune(heartbeat_interval=self.config.heartbeat_interval)
-                # yield self.write(tune_ok)  # it works too!!!! and frame must be send to server
-                tune_ok = yield self.write(tune)  # it works too!!!! and frame will be send to server on next yield
-                conn_open = yield
-                open_ok = amqp_spec.Connection.OpenOk()
-                ch_open1 = yield self.write(open_ok)
 
                 ch_open_ok = amqp_spec.Channel.OpenOk()
 

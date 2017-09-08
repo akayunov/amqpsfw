@@ -38,7 +38,7 @@ class TestAmqpSpec:
 
     def test_connection_startok(self):
         start_ok = amqp_spec.Connection.StartOk(
-            peer_properties={'tratata': 121}, mechanism='PLAIN', credential=['user', 'password'], locale='en_US',  channel_number=123)
+            client_properties={'tratata': 121}, mechanisms='PLAIN', credential=['user', 'password'], locale='en_US',  channel_number=123)
         assert amqp_spec.decode_frame(start_ok.encoded) == (len(start_ok) - 8, start_ok, b'')
 
     def test_connection_secure(self):

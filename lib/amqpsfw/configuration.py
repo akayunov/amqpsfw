@@ -7,7 +7,9 @@ class Configuration:
     host = 'localhost'
     port = 5672
     credential = namedtuple('Credential', ['user', 'password'])('root', 'privetserver')
-    security_mechanism = 'PLAIN'
+    security_mechanisms = 'PLAIN'
+    version_major = 0
+    version_minor = 9
     amqp_version = (0, 0, 9, 1)
     heartbeat_interval = 100
     virtual_host = '/'
@@ -15,3 +17,4 @@ class Configuration:
     secure_response = ''
     client_properties = {'client': 'anqpsfw:0.1'}
     server_properties = {'server': 'anqpsfw:0.1'}
+    secure_challenge = 'tratata'

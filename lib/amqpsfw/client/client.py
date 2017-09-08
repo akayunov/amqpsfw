@@ -24,15 +24,15 @@ class Client(Application):
         self.app_gen.send(None)
 
     def processor(self):
-        protocol_header = amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', *self.config.amqp_version)
-        connection_start = yield self.write(protocol_header)
+        connection_start = yield self.write(amqp_spec.ProtocolHeader('A', 'M', 'Q', 'P', *self.config.amqp_version))
+        # TODO server can answer rigth protocol_header id client send wrong one
         self.config.server_properties = connection_start.server_properties
         self.config.server_version_major = connection_start.version_major
         self.config.server_version_minor = connection_start.version_minor
-        self.config.server_security_mechanism = connection_start.mechanisms
+        self.config.server_security_mechanisms = connection_start.mechanisms
         self.config.server_locale = connection_start.locale
         frame = yield self.write(amqp_spec.Connection.StartOk(
-            self.config.client_properties, self.config.security_mechanism, credential=[self.config.credential.user, self.config.credential.password]
+            self.config.client_properties, self.config.security_mechanisms, credential=[self.config.credential.user, self.config.credential.password]
         ))
         if type(frame) is amqp_spec.Connection.Secure:
             self.config.secure_challenge = frame.challenge
