@@ -43,4 +43,4 @@ class Client(Application):
         self.config.frame_max = tune.frame_max
         self.config.heartbeat_interval = tune.heartbeat_interval
         yield self.write(amqp_spec.Connection.TuneOk(heartbeat_interval=self.config.heartbeat_interval))
-        yield self.write(amqp_spec.Connection.ConOpen(virtual_host=self.config.virtual_host))
+        yield self.write(amqp_spec.Connection.Open(virtual_host=self.config.virtual_host))

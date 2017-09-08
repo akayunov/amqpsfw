@@ -23,21 +23,21 @@ class ClientPublishAplication(Client):
         # yield self.write(tune_ok)  # it works too!!!! and frame must be send to server
         self.write(tune_ok)  # it works too!!!! and frame will be send to server on next yield
 
-        c_open = amqp_spec.Connection.ConOpen(virtual_host=CConf.virtual_host)
+        c_open = amqp_spec.Connection.Open(virtual_host=CConf.virtual_host)
         openok = yield self.write(c_open)
 
         # channel_obj = amqp_spec.Channel()
         # ch_open = channel_obj.Open(channel_number=1)
-        ch_open1 = amqp_spec.Channel.ChOpen(channel_number=1)
+        ch_open1 = amqp_spec.Channel.Open(channel_number=1)
         ch_open_ok = yield self.write(ch_open1)
 
         flow = amqp_spec.Channel.Flow(channel_number=ch_open1.channel_number)
         flow_ok = yield self.write(flow)
 
-        ex_declare = amqp_spec.Exchange.ExDeclare('message', channel_number=ch_open1.channel_number)
+        ex_declare = amqp_spec.Exchange.Declare('message', channel_number=ch_open1.channel_number)
         declare_ok = yield self.write(ex_declare)
 
-        declare_q = amqp_spec.Queue.QDeclare(queue_name='text', channel_number=ch_open1.channel_number)
+        declare_q = amqp_spec.Queue.Declare(queue_name='text', channel_number=ch_open1.channel_number)
         declare_q_ok = yield self.write(declare_q)
 
         bind = amqp_spec.Queue.Bind(queue_name='text', exchange_name='message', routing_key='text.#', channel_number=ch_open1.channel_number)
@@ -53,10 +53,10 @@ class ClientPublishAplication(Client):
             assert response is None
             response = yield self.write(amqp_spec.Content(content=content, channel_number=channel_number))
             assert response is None
-        response = yield self.write(amqp_spec.Channel.ChClose(channel_number=channel_number))
-        assert type(response) is amqp_spec.Channel.ChCloseOk
-        response = yield self.write(amqp_spec.Connection.ConClose())
-        assert type(response) is amqp_spec.Connection.ConCloseOk
+        response = yield self.write(amqp_spec.Channel.Close(channel_number=channel_number))
+        assert type(response) is amqp_spec.Channel.CloseOk
+        response = yield self.write(amqp_spec.Connection.Close())
+        assert type(response) is amqp_spec.Connection.CloseOk
         yield self.stop()
 
 
@@ -75,17 +75,17 @@ class ServerAplication(ServerClient):
         # yield self.write(tune_ok)  # it works too!!!! and frame must be send to server
         tune_ok = yield self.write(tune)  # it works too!!!! and frame will be send to server on next yield
         conn_open = yield
-        open_ok = amqp_spec.Connection.ConOpenOk()
+        open_ok = amqp_spec.Connection.OpenOk()
         ch_open1 = yield self.write(open_ok)
 
-        ch_open_ok = amqp_spec.Channel.ChOpenOk()
+        ch_open_ok = amqp_spec.Channel.OpenOk()
 
         flow = yield self.write(ch_open_ok)
         exc_declare = yield self.write(amqp_spec.Channel.FlowOk(channel_number=ch_open1.channel_number))
 
-        queue_declare = yield self.write(amqp_spec.Exchange.ExDeclareOk())
+        queue_declare = yield self.write(amqp_spec.Exchange.DeclareOk())
 
-        queue_bind = yield self.write(amqp_spec.Queue.QDeclareOk(queue_declare.queue_name))
+        queue_bind = yield self.write(amqp_spec.Queue.DeclareOk(queue_declare.queue_name))
         publish = yield self.write(amqp_spec.Queue.BindOk())
 
         yield self.sleep(3)

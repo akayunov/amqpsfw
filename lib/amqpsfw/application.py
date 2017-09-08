@@ -163,19 +163,19 @@ class Application:
         self.write(amqp_spec.Connection.SecureOk(response='tratata'))
 
     def on_connection_close(self, method):
-        self.write(amqp_spec.Connection.ConCloseOk())
+        self.write(amqp_spec.Connection.CloseOk())
         self.stop()
 
     def on_channel_flow(self, method):
         self.write(amqp_spec.Channel.FlowOk(method.active))
 
     def on_channel_close(self, method):
-        self.write(amqp_spec.Channel.ChCloseOk())
+        self.write(amqp_spec.Channel.CloseOk())
 
     method_mapper = {
         amqp_spec.Heartbeat: on_hearbeat,
-        amqp_spec.Connection.ConClose: on_connection_close,
-        amqp_spec.Channel.ChClose: on_channel_close
+        amqp_spec.Connection.Close: on_connection_close,
+        amqp_spec.Channel.Close: on_channel_close
     }
 
     def method_handler(self, method):
