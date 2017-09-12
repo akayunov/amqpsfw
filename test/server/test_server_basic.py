@@ -48,31 +48,8 @@ class TestServer:
                 assert type(response) is amqp_spec.Connection.CloseOk
                 yield self.stop()
 
-        class ServerAplication(ServerClient):
-
-            def processor(self):
-                channel_number = 1
-                channel_open = yield from super().processor()
-                # import pdb;pdb.set_trace()
-
-
-                ch_open_ok = amqp_spec.Channel.OpenOk()
-
-                exc_declare = yield self.write(ch_open_ok)
-
-                queue_declare = yield self.write(amqp_spec.Exchange.DeclareOk())
-
-                queue_bind = yield self.write(amqp_spec.Queue.DeclareOk(queue_declare.queue_name))
-                publish = yield self.write(amqp_spec.Queue.BindOk())
-
-                yield self.sleep(3)
-                for t in range(100):
-                    content = "qwe" + str(t)
-                    response = yield
-                yield self.stop()
-
         io_loop = ioloop.IOLoop()
-        s_app = Server(io_loop, ServerAplication)
+        s_app = Server(io_loop)
         c_app = ClientPublishAplication(io_loop)
         c_app.config = ClientConfiguration()
         s_app.config = ServerConfiguration()
