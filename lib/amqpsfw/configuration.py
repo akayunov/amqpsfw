@@ -1,20 +1,10 @@
-from collections import namedtuple
-
-# TODO devide it by client and server properties
-
-
 class Configuration:
-    host = 'localhost'
     port = 5672
-    credential = namedtuple('Credential', ['user', 'password'])('root', 'privetserver')
     security_mechanisms = 'PLAIN'
     version_major = 0
     version_minor = 9
     amqp_version = (0, 0, 9, 1)
-    heartbeat_interval = 100
-    virtual_host = '/'
-    listen_queue_size = 10
     secure_response = ''
-    client_properties = {'client': 'anqpsfw:0.1'}
-    server_properties = {'server': 'anqpsfw:0.1'}
+    client_properties = {'client': 'amqpsfw:0.1'}
+    server_properties = {'server': 'amqpsfw:0.1'}
     secure_challenge = 'tratata'

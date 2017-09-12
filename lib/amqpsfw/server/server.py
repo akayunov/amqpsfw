@@ -28,6 +28,7 @@ class Server(Application):
             client_socket, addr = self.socket.accept()
             log.debug('Client socket on server side: %s %s', client_socket.fileno(), addr)
             server_application = self.server_aplication_class(self.ioloop, client_socket)
+            server_application.config = self.config
             server_application.start()
         else:
             self.handle_error(fd)

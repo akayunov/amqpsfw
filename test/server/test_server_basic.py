@@ -6,6 +6,8 @@ sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'
 from amqpsfw import amqp_spec, ioloop
 from amqpsfw.server.server import Server, ServerClient
 from amqpsfw.client.client import Client
+from amqpsfw.client.configuration import ClientConfiguration
+from amqpsfw.server.configuration import ServerConfiguration
 
 
 class TestServer:
@@ -72,6 +74,8 @@ class TestServer:
         io_loop = ioloop.IOLoop()
         s_app = Server(io_loop, ServerAplication)
         c_app = ClientPublishAplication(io_loop)
+        c_app.config = ClientConfiguration()
+        s_app.config = ServerConfiguration()
         c_app.config.port = 55555
         s_app.config.port = 55555
         s_app.start()

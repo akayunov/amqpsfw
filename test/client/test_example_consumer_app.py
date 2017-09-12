@@ -5,6 +5,7 @@ sys.path = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'lib'
 
 from amqpsfw import amqp_spec, ioloop
 from amqpsfw.client.client import Client
+from amqpsfw.client.configuration import ClientConfiguration
 
 
 class TestClientConsumer:
@@ -75,6 +76,7 @@ class TestClientConsumer:
         def start_aplication():
             io_loop = ioloop.IOLoop()
             app = ConsumerAplication(io_loop)
+            app.config = ClientConfiguration()
             app.start()
             io_loop.start()
 
