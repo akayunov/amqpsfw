@@ -1,3 +1,5 @@
+import sys
+import operator
 from collections import OrderedDict
 from amqpsfw import sasl_spec
 from amqpsfw.amqp_types import (
@@ -7,13 +9,15 @@ from amqpsfw.amqp_types import (
 )
 from amqpsfw.exceptions import SfwException
 
+THIS_MODULE = sys.modules[__name__]
+
 
 class Frame:
     frame_end = ShortShortUint(206)
     frame_type = None
     type_structure = [ShortShortUint, ShortUint, LongUint]
     frame_params = []
-    dont_wait_response = 0
+    expected_response_frames = None
 
     def __init__(self, channel_number=0, **kwargs):
         self.payload = AmqpType('')
@@ -22,7 +26,9 @@ class Frame:
         if type(channel_number) != int or not (65535 > channel_number >= 0):
             raise SfwException('Internal', 'Wrong channel number, must be int in [0 .. 65535]')
         if not self.frame_params:
+            # init type
             self.set_frame_params(kwargs)
+            self.set_expected_response_frames()
 
     def set_payload(self, kwargs):
         for arg_name, arg_value, arg_type in zip(kwargs.keys(), kwargs.values(), self.type_structure):
@@ -36,6 +42,10 @@ class Frame:
     @property
     def encoded(self):
         return (ShortShortUint(self.frame_type) + ShortUint(self.channel_number) + LongUint(len(self.payload)) + self.payload + self.frame_end).encoded
+
+    def set_expected_response_frames(self):
+        if type(self).expected_response_frames:
+            type(self).expected_response_frames = [operator.attrgetter(i)(THIS_MODULE) for i in type(self).expected_response_frames[:]]
 
     def set_frame_params(self, kwargs):
         type(self).frame_params = ['channel_number']
@@ -63,18 +73,18 @@ class Frame:
 class ProtocolHeader(Frame):
     frame_end = AmqpType('')
     type_structure = [Char, Char, Char, Char, ShortShortUint, ShortShortUint, ShortShortUint, ShortShortUint]
+    expected_response_frames = ['Connection.Start']
 
     def __init__(self, c1, c2, c3, c4, v1, v2, v3, v4):
-        self.payload = AmqpType('')
+        super().__init__(channel_number=0, c1=c1, c2=c2, c3=c3, c4=c4, v1=v1, v2=v2, v3=v3, v4=v4)
         self.c1 = c1
-        self.c2 = c1
-        self.c3 = c1
-        self.c4 = c1
+        self.c2 = c2
+        self.c3 = c3
+        self.c4 = c4
         self.v1 = v1
         self.v2 = v2
         self.v3 = v3
         self.v4 = v4
-        self.set_payload({'c1': c1, 'c2': c2, 'c3': c3, 'c4': c4, 'v1': v1, 'v2': v2, 'v3': v3, 'v4': v4})
 
     @property
     def encoded(self):
@@ -100,7 +110,6 @@ class Method(Frame):
 class Header(Frame):
     frame_type = 2
     type_structure = [ShortUint, ShortUint, LongLongUint, HeaderProperty]
-    dont_wait_response = 1
 
     def __init__(self, class_id, weight=0, body_size=0, header_properties=None, channel_number=0):
         super().__init__(class_id=class_id, weight=weight, body_size=body_size, header_properties=header_properties, channel_number=channel_number)
@@ -113,7 +122,6 @@ class Header(Frame):
 class Content(Frame):
     frame_type = 3
     type_structure = [String]
-    dont_wait_response = 1
 
     def __init__(self, content='', channel_number=0):
         super().__init__(content=content, channel_number=channel_number)
@@ -130,6 +138,7 @@ class Connection:
         type_structure = [ShortShortUint, ShortShortUint, FieldTable, LongString, LongString]
         class_id = 10
         method_id = 10
+        expected_response_frames = ['Connection.StartOk']
 
         def __init__(self, version_major, version_minor, server_properties, mechanisms, locale='en_US', channel_number=0):
             super().__init__(version_major=version_major, version_minor=version_minor, server_properties=server_properties, mechanisms=mechanisms,
@@ -144,6 +153,7 @@ class Connection:
         type_structure = [FieldTable, ShortString, sasl_spec.Plain, ShortString]
         class_id = 10
         method_id = 11
+        expected_response_frames = ['Connection.Secure', 'Connection.Tune']
 
         def __init__(self, client_properties, mechanisms, credential, locale='en_US', channel_number=0):
             super().__init__(client_properties=client_properties, mechanisms=mechanisms, credential=credential, locale=locale, channel_number=channel_number)
@@ -156,6 +166,7 @@ class Connection:
         type_structure = [LongString]
         class_id = 10
         method_id = 20
+        expected_response_frames = ['Connection.SecureOk']
 
         def __init__(self, challenge, channel_number=0):
             super().__init__(challenge=challenge, channel_number=channel_number)
@@ -165,6 +176,7 @@ class Connection:
         type_structure = [LongString]
         class_id = 10
         method_id = 21
+        expected_response_frames = ['Connection.Tune']
 
         def __init__(self, response, channel_number=0):
             super().__init__(response=response, channel_number=channel_number)
@@ -174,6 +186,7 @@ class Connection:
         type_structure = [ShortUint, LongUint, ShortUint]
         class_id = 10
         method_id = 30
+        expected_response_frames = ['Connection.TuneOk']
 
         def __init__(self, channel_max=0, frame_max=131072, heartbeat_interval=60, channel_number=0):
             super().__init__(channel_max=channel_max, frame_max=frame_max, heartbeat_interval=heartbeat_interval, channel_number=channel_number)
@@ -185,7 +198,6 @@ class Connection:
         type_structure = [ShortUint, LongUint, ShortUint]
         class_id = 10
         method_id = 31
-        dont_wait_response = 1
 
         def __init__(self, channel_max=0, frame_max=131072, heartbeat_interval=60, channel_number=0):
             super().__init__(channel_max=channel_max, frame_max=frame_max, heartbeat_interval=heartbeat_interval, channel_number=channel_number)
@@ -197,6 +209,7 @@ class Connection:
         type_structure = [Path, ReservedShortString, ReservedBit1]
         class_id = 10
         method_id = 40
+        expected_response_frames = ['Connection.OpenOk']
 
         def __init__(self, virtual_host='/', channel_number=0):
             super().__init__(virtual_host=virtual_host, reserved='', bit1=OrderedDict(reserved1=0), channel_number=channel_number)
@@ -206,6 +219,7 @@ class Connection:
         type_structure = [ReservedShortString]
         class_id = 10
         method_id = 41
+        expected_response_frames = ['Channel.Open']
 
         def __init__(self, channel_number=0):
             super().__init__(reserved='', channel_number=channel_number)
@@ -214,6 +228,7 @@ class Connection:
         type_structure = [ShortUint, ShortString, ShortUint, ShortUint]
         class_id = 10
         method_id = 50
+        expected_response_frames = ['Connection.CloseOk']
 
         def __init__(self, reply_code=0, reply_text='', class_id=10, method_id=50, channel_number=0):
             super().__init__(reply_code=reply_code, reply_text=reply_text, class_id=class_id, method_id=method_id, channel_number=channel_number)
@@ -233,6 +248,7 @@ class Channel:
         type_structure = [ReservedShortString]
         class_id = 20
         method_id = 10
+        expected_response_frames = ['Channel.OpenOk']
 
         def __init__(self, channel_number=0):
             super().__init__(reserved='', channel_number=channel_number)
@@ -242,6 +258,7 @@ class Channel:
         type_structure = [ReservedLongString]
         class_id = 20
         method_id = 11
+        expected_response_frames = ['Frame']
 
         def __init__(self, channel_number=0):
             super().__init__(reserved='', channel_number=channel_number)
@@ -250,6 +267,7 @@ class Channel:
         type_structure = [ReservedBit1]
         class_id = 20
         method_id = 20
+        expected_response_frames = ['Channel.FlowOk']
 
         def __init__(self, active=1, channel_number=0):
             super().__init__(bit1=OrderedDict(active=active), channel_number=channel_number)
@@ -259,6 +277,7 @@ class Channel:
         type_structure = [Bit1]
         class_id = 20
         method_id = 21
+        expected_response_frames = ['Frame']
 
         def __init__(self, active=1, channel_number=0):
             super().__init__(bit1=OrderedDict(active=active), channel_number=channel_number)
@@ -268,6 +287,7 @@ class Channel:
         type_structure = [ShortUint, ShortString, ShortUint, ShortUint]
         class_id = 20
         method_id = 40
+        expected_response_frames = ['Channel.CloseOk']
 
         def __init__(self, reply_code=0, reply_text='', class_id=20, method_id=40, channel_number=0):
             super().__init__(reply_code=reply_code, reply_text=reply_text, class_id=class_id, method_id=method_id, channel_number=channel_number)
@@ -287,6 +307,7 @@ class Exchange:
         type_structure = [ReservedShortUint, ExchangeName, ShortString, Bit5, FieldTable]
         class_id = 40
         method_id = 10
+        expected_response_frames = ['Exchange.DeclareOk']
 
         def __init__(self, exchange_name, exchange_type='topic', do_not_create=0, durable=1, auto_deleted=0, internal=0, no_wait=0, properties=None,
                      channel_number=0):
@@ -307,11 +328,13 @@ class Exchange:
         type_structure = []
         class_id = 40
         method_id = 11
+        expected_response_frames = ['Frame']
 
     class Delete(Method):
         type_structure = [ReservedShortUint, ExchangeName, Bit2]
         class_id = 40
         method_id = 20
+        expected_response_frames = ['Exchange.DeleteOk']
 
         def __init__(self, exchange_name, delete_if_unused=0, no_wait=0, channel_number=0):
             super().__init__(reversed=0, exchange_name=exchange_name, bit2=OrderedDict(delete_if_unused=delete_if_unused, no_wait=no_wait), channel_number=channel_number)
@@ -323,6 +346,7 @@ class Exchange:
         type_structure = []
         class_id = 40
         method_id = 21
+        expected_response_frames = ['Frame']
 
 
 class Queue:
@@ -330,6 +354,7 @@ class Queue:
         type_structure = [ReservedShortUint, QueueName, Bit5, FieldTable]
         class_id = 50
         method_id = 10
+        expected_response_frames = ['Queue.DeclareOk']
 
         def __init__(self, queue_name, passive=0, durable=1, exclusive=0, auto_deleted=0, no_wait=0, properties=None, channel_number=0):
             super().__init__(reserved=0, queue_name=queue_name, bit5=OrderedDict(passive=passive, durable=durable, exclusive=exclusive, auto_deleted=auto_deleted, no_wait=no_wait),
@@ -346,6 +371,7 @@ class Queue:
         type_structure = [QueueName, MessageCount, LongUint]
         class_id = 50
         method_id = 11
+        expected_response_frames = ['Frame']
 
         def __init__(self, queue_name, message_count=0, consumer_count=0, channel_number=0):
             super().__init__(queue_name=queue_name, message_count=message_count, consumer_count=consumer_count, channel_number=channel_number)
@@ -357,6 +383,7 @@ class Queue:
         type_structure = [ReservedShortUint, QueueName, ExchangeName, ShortString, Bit1, FieldTable]
         class_id = 50
         method_id = 20
+        expected_response_frames = ['Queue.BindOk']
 
         def __init__(self, queue_name, exchange_name, routing_key, no_wait=0, properties=None, channel_number=0):
             super().__init__(reserved=0, queue_name=queue_name, exchange_name=exchange_name, routing_key=routing_key, bit1=OrderedDict(no_wait=no_wait), properties=properties,
@@ -371,6 +398,7 @@ class Queue:
         type_structure = []
         class_id = 50
         method_id = 21
+        expected_response_frames = ['Frame']
 
 
 class Basic:
@@ -378,7 +406,6 @@ class Basic:
         type_structure = [ReservedShortUint, ExchangeName, ShortString, Bit2]
         class_id = 60
         method_id = 40
-        dont_wait_response = 1
 
         def __init__(self, exchange_name, routing_key, mandatory=0, immediate=0, channel_number=0):
             super().__init__(reserved=0, exchange_name=exchange_name, routing_key=routing_key,
@@ -392,6 +419,7 @@ class Basic:
         type_structure = [ReservedShortUint, QueueName, ConsumerTag, Bit4, FieldTable]
         class_id = 60
         method_id = 20
+        expected_response_frames = ['Basic.ConsumeOk']
 
         def __init__(self, queue_name, consumer_tag='', non_local=1, no_ack=0, exclusize=0, no_wait=0, properties=None, channel_number=0):
             super().__init__(reserved=0, queue_name=queue_name, consumer_tag=consumer_tag,
@@ -409,6 +437,7 @@ class Basic:
         type_structure = [ConsumerTag]
         class_id = 60
         method_id = 21
+        expected_response_frames = ['Basic.Deliver']
 
         def __init__(self, consumer_tag='', channel_number=0):
             super().__init__(consumer_tag=consumer_tag, channel_number=channel_number)
@@ -418,6 +447,7 @@ class Basic:
         type_structure = [ConsumerTag, DeliveryTag, Bit1, ExchangeName, ShortString]
         class_id = 60
         method_id = 60
+        expected_response_frames = ['Basic.Ack']
 
         def __init__(self, consumer_tag, delivery_tag, redelivered, exchange_name, routing_key, channel_number=0):
             super().__init__(consumer_tag=consumer_tag, delivery_tag=delivery_tag, bit1=OrderedDict(redelivered=redelivered), exchange_name=exchange_name, routing_key=routing_key,
@@ -432,7 +462,6 @@ class Basic:
         type_structure = [DeliveryTag, Bit1]
         class_id = 60
         method_id = 80
-        dont_wait_response = 1
 
         def __init__(self, delivery_tag, multiple=0, channel_number=0):
             super().__init__(delivery_tag=delivery_tag, bit1=OrderedDict(multiple=multiple), channel_number=channel_number)
@@ -445,31 +474,37 @@ class Tx:
         type_structure = []
         class_id = 90
         method_id = 10
+        expected_response_frames = ['Tx.SelectOk']
 
     class SelectOK(Method):
         type_structure = []
         class_id = 90
         method_id = 11
+        expected_response_frames = ['Frame']
 
     class Commit(Method):
         type_structure = []
         class_id = 90
         method_id = 20
+        expected_response_frames = ['Tx.CommitOk']
 
     class CommitOK(Method):
         type_structure = []
         class_id = 90
         method_id = 21
+        expected_response_frames = ['Frame']
 
     class Rollback(Method):
         type_structure = []
         class_id = 90
         method_id = 30
+        expected_response_frames = ['Tx.RollbackOk']
 
     class RollbackOK(Method):
         type_structure = []
         class_id = 90
         method_id = 31
+        expected_response_frames = ['Frame']
 
 
 FRAME_TYPES = {

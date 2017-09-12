@@ -22,11 +22,9 @@ class BufferOut:
     def __init__(self):
         self.frame_queue = deque()
         self.current_frame_bytes = b''
-        self.dont_wait_response = 0
 
     def clear(self):
         self.current_frame_bytes = b''
-        self.dont_wait_response = 0
 
     def append_frame(self, x):
         self.frame_queue.append(x)
@@ -55,6 +53,7 @@ class Application:
         self.ioloop = ioloop
         self.status = 'RUNNING'
         self.socket = app_socket
+        self.expected_response_frames = []
         self.app_gen = self.processor()
         self.config = Configuration()
 
@@ -70,6 +69,8 @@ class Application:
         self.ioloop.update_handler(self.socket.fileno(), events)
 
     def write(self, value):
+        if self.status == self.STOPPED:
+            raise SfwException('Internal', 'Aplication is stopped')
         self.buffer_out.append_frame(value)
         self.modify_to_write()
 
@@ -83,8 +84,8 @@ class Application:
             self.handle_error(fd)
 
     def handle_error(self, fd):
+        log.error('Get error on socket: %s', fd)
         self.stop()
-        raise SfwException('Internal', 'Socket error in handle error on: ' + str(fd))
 
     def handle_read(self):
         # we cant parse full buffer in one call because if many data in buffer then we will be run this cycle by buffer while buffer became empty
@@ -100,6 +101,11 @@ class Application:
         if frame:
             self.buffer_in.parsed_data_size += (payload_size + 8)
             log.debug('IN {}: {}'.format(self.socket.fileno(), frame))
+            if self.expected_response_frames and not issubclass(type(frame), tuple(self.expected_response_frames)):
+                log.error('Unexpected frame type: %s', str(frame))
+                self.stop()
+            else:
+                self.expected_response_frames = []
             response = self.method_handler(frame)
             _, next_frame, _ = amqp_spec.decode_frame(self.buffer_in.frame_bytes)
             if not next_frame:
@@ -115,7 +121,7 @@ class Application:
 
     def handle_write(self):
         if len(self.buffer_out.frame_queue) > 0 and not self.buffer_out.current_frame_bytes:
-            self.buffer_out.dont_wait_response = self.buffer_out.frame_queue[-1].dont_wait_response
+            self.expected_response_frames = self.buffer_out.frame_queue[-1].expected_response_frames
             for frame in self.buffer_out.frame_queue:
                 log.debug('OUT {}: {}'.format(self.socket.fileno(), frame))
                 self.buffer_out.current_frame_bytes += frame.encoded
@@ -125,7 +131,7 @@ class Application:
             self.buffer_out.current_frame_bytes = self.buffer_out.current_frame_bytes[writed_bytes:]
         if not self.buffer_out.current_frame_bytes and not len(self.buffer_out.frame_queue):
             self.modify_to_read()
-            if self.buffer_out.dont_wait_response:
+            if self.expected_response_frames is None:
                 # TODO why this try here?
                 try:
                     self.app_gen.send(None)
@@ -153,20 +159,12 @@ class Application:
     def on_hearbeat(self, method):
         self.write(amqp_spec.Heartbeat())
 
-    def on_connection_start(self, method):
-        self.write(amqp_spec.Connection.StartOk({'host': self.config.host}, self.config.security_mechanisms, credential=[self.config.credential.user, self.config.credential.password]))
-
-    def on_connection_tune(self, method):
-        self.write(amqp_spec.Connection.TuneOk(heartbeat_interval=self.config.heartbeat_interval))
-
-    def on_connection_secure(self, method):
-        self.write(amqp_spec.Connection.SecureOk(response='tratata'))
-
     def on_connection_close(self, method):
         self.write(amqp_spec.Connection.CloseOk())
         self.stop()
 
     def on_channel_flow(self, method):
+        # TODO if active=0 stop sending data
         self.write(amqp_spec.Channel.FlowOk(method.active))
 
     def on_channel_close(self, method):
@@ -175,7 +173,8 @@ class Application:
     method_mapper = {
         amqp_spec.Heartbeat: on_hearbeat,
         amqp_spec.Connection.Close: on_connection_close,
-        amqp_spec.Channel.Close: on_channel_close
+        amqp_spec.Channel.Close: on_channel_close,
+        amqp_spec.Channel.Flow: on_channel_flow
     }
 
     def method_handler(self, method):

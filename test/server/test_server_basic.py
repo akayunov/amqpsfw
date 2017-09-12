@@ -56,8 +56,7 @@ class TestServer:
 
                 ch_open_ok = amqp_spec.Channel.OpenOk()
 
-                flow = yield self.write(ch_open_ok)
-                exc_declare = yield self.write(amqp_spec.Channel.FlowOk(channel_number=1))
+                exc_declare = yield self.write(ch_open_ok)
 
                 queue_declare = yield self.write(amqp_spec.Exchange.DeclareOk())
 

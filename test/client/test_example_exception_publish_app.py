@@ -7,8 +7,8 @@ from amqpsfw import amqp_spec, ioloop
 from amqpsfw.client.client import Client
 
 
-class TestClientExceptionPublish:
-    def test_client_exception_publish(self):
+class TestClientPublishException:
+    def test_client_publish_exception(self):
         class PublishAplication(Client):
 
             def processor(self):
