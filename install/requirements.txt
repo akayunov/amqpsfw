@@ -3,7 +3,7 @@ chardet==3.0.4
 coverage==4.4.1
 idna==2.6
 pika==0.10.0
-py==1.4.34
+py==1.10.0
 pytest==3.2.1
 pytest-cov==2.5.1
 python-coveralls==2.9.1
